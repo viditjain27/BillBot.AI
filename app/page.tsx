@@ -178,6 +178,7 @@ export default function Home() {
         <ChatWindow
           key={activeSessionId ? `session-${activeSessionId}` : `new-${chatKey}`}
           onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
+          onNewChat={handleNewChat}
           user={user}
           onOpenDisputeModal={handleOpenDisputeModal}
           initialPrompt={activePrompt}

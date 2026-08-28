@@ -9,6 +9,7 @@ import { UserSession } from "./AuthModal";
 
 interface ChatWindowProps {
   onToggleSidebar?: () => void;
+  onNewChat?: () => void;
   user: UserSession;
   onOpenDisputeModal: (billData?: BillSummaryData) => void;
   initialPrompt?: string | null;
@@ -20,6 +21,7 @@ interface ChatWindowProps {
 
 export default function ChatWindow({
   onToggleSidebar,
+  onNewChat,
   user,
   onOpenDisputeModal,
   initialPrompt,
@@ -488,21 +490,41 @@ export default function ChatWindow({
       )}
 
       {/* Top Header Navigation (Blinkit-inspired clean bar) */}
-      <header className="h-16 px-4 md:px-6 border-b border-[#E5E7EB] bg-white sticky top-0 flex items-center justify-between gap-3 shrink-0 z-20">
-        {/* Left Brand */}
-        <div className="flex items-center gap-2 md:gap-3 shrink-0">
+      <header className="h-16 px-3 md:px-6 border-b border-[#E5E7EB] bg-white sticky top-0 flex items-center justify-between gap-2 md:gap-3 shrink-0 z-20">
+        {/* Left Brand & Navigation */}
+        <div className="flex items-center gap-1.5 md:gap-3 shrink-0">
           <button
             onClick={onToggleSidebar}
             className="p-2 text-[#6B7280] hover:text-[#111827] hover:bg-[#F3F4F6] rounded-xl transition-colors cursor-pointer flex items-center justify-center"
             title="Toggle sidebar & history"
+            aria-label="Toggle navigation menu"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
             </svg>
           </button>
 
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl overflow-hidden shadow-xs border border-[#E5E7EB] bg-white flex items-center justify-center shrink-0">
+          {/* Back button when inside a conversation */}
+          {(messages.length > 0 || activeSessionId) && (
+            <button
+              onClick={() => onNewChat?.()}
+              className="p-2 text-[#26619C] hover:bg-[#EBF3FA] active:bg-[#DCEBFA] rounded-xl transition-colors cursor-pointer flex items-center gap-1 font-bold text-xs shrink-0"
+              title="Go back to Home / New Query"
+              aria-label="Go back"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+              </svg>
+              <span className="hidden sm:inline">Back</span>
+            </button>
+          )}
+
+          <div
+            onClick={() => onNewChat?.()}
+            className="flex items-center gap-2 cursor-pointer select-none group"
+            title="Go to Home"
+          >
+            <div className="w-8 h-8 rounded-xl overflow-hidden shadow-xs border border-[#E5E7EB] bg-white flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/logo.png"
@@ -511,7 +533,7 @@ export default function ChatWindow({
               />
             </div>
             <div>
-              <span className="text-base font-extrabold text-[#111827] tracking-tight">
+              <span className="text-base font-extrabold text-[#111827] tracking-tight group-hover:text-[#26619C] transition-colors">
                 BillBot AI
               </span>
               <span className="hidden sm:inline-block ml-2 text-[10px] px-2 py-0.5 rounded-full bg-[#EBF3FA] text-[#26619C] font-bold">
@@ -534,9 +556,21 @@ export default function ChatWindow({
           </div>
         </div>
 
-        {/* Right Session Badge */}
+        {/* Right Session & Quick Actions */}
         <div className="flex items-center gap-2 shrink-0">
-          <div className="flex items-center gap-2 pl-2">
+          {/* Mobile Quick New Query Button */}
+          <button
+            onClick={() => onNewChat?.()}
+            className="flex md:hidden items-center gap-1 px-2.5 py-1.5 bg-[#EBF3FA] active:bg-[#DCEBFA] border border-[#B9D7F2] text-[#26619C] text-xs font-bold rounded-xl transition-all cursor-pointer shadow-2xs"
+            title="Start new query"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            <span>New</span>
+          </button>
+
+          <div className="flex items-center gap-2 pl-1">
             <div className="w-8 h-8 rounded-full bg-[#26619C] text-white text-xs font-bold flex items-center justify-center shadow-sm">
               {user.avatarInitial}
             </div>
