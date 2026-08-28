@@ -20,16 +20,20 @@ export const metadata: Metadata = {
     "billing codes",
     "healthcare costs",
   ],
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png",
+  },
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
-    title: "BillBot",
+    statusBarStyle: "default",
+    title: "BillBot AI",
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0c1117",
+  themeColor: "#26619C",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -40,7 +44,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${inter.variable} h-full antialiased`}>
       <head>
-        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+        <link rel="icon" href="/logo.png" type="image/png" />
+        <link rel="apple-touch-icon" href="/logo.png" />
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground font-sans">
         {children}

@@ -22,13 +22,12 @@ interface MessageBubbleProps {
 }
 
 function renderFormattedMarkdown(text: string) {
-  // Line-by-line markdown rendering
   const lines = text.split("\n");
   return lines.map((line, idx) => {
     // Header 3
     if (line.startsWith("### ")) {
       return (
-        <h4 key={idx} className="text-sm font-bold text-foreground mt-3 mb-1.5 flex items-center gap-1.5">
+        <h4 key={idx} className="text-sm font-bold text-[#111827] mt-3 mb-1.5 flex items-center gap-1.5">
           {line.replace("### ", "")}
         </h4>
       );
@@ -36,20 +35,20 @@ function renderFormattedMarkdown(text: string) {
     // Header 2
     if (line.startsWith("## ")) {
       return (
-        <h3 key={idx} className="text-base font-bold gradient-text mt-3 mb-1.5">
+        <h3 key={idx} className="text-base font-bold text-[#26619C] mt-3.5 mb-1.5">
           {line.replace("## ", "")}
         </h3>
       );
     }
     // Horizontal Rule
     if (line.trim() === "---") {
-      return <hr key={idx} className="my-2 border-border/80" />;
+      return <hr key={idx} className="my-2.5 border-[#E5E7EB]" />;
     }
     // Bullet point
     if (line.trim().startsWith("* ") || line.trim().startsWith("- ")) {
       const clean = line.trim().slice(2);
       return (
-        <li key={idx} className="ml-4 list-disc text-foreground/90 my-0.5 leading-relaxed">
+        <li key={idx} className="ml-4 list-disc text-[#374151] my-0.5 leading-relaxed text-[13px] md:text-sm">
           {renderInlineFormatting(clean)}
         </li>
       );
@@ -58,19 +57,19 @@ function renderFormattedMarkdown(text: string) {
     const numMatch = line.match(/^(\d+)\.\s(.*)$/);
     if (numMatch) {
       return (
-        <div key={idx} className="ml-2 flex items-start gap-1.5 my-1 leading-relaxed">
-          <span className="font-semibold text-primary shrink-0">{numMatch[1]}.</span>
-          <span>{renderInlineFormatting(numMatch[2])}</span>
+        <div key={idx} className="ml-1 flex items-start gap-2 my-1 leading-relaxed text-[13px] md:text-sm">
+          <span className="font-bold text-[#26619C] shrink-0 text-xs mt-0.5">{numMatch[1]}.</span>
+          <span className="text-[#374151]">{renderInlineFormatting(numMatch[2])}</span>
         </div>
       );
     }
 
     if (!line.trim()) {
-      return <div key={idx} className="h-2" />;
+      return <div key={idx} className="h-1.5" />;
     }
 
     return (
-      <p key={idx} className="my-1 leading-relaxed text-foreground/90">
+      <p key={idx} className="my-1 leading-relaxed text-[#374151] text-[13px] md:text-sm">
         {renderInlineFormatting(line)}
       </p>
     );
@@ -82,14 +81,14 @@ function renderInlineFormatting(content: string) {
   return parts.map((part, i) => {
     if (part.startsWith("**") && part.endsWith("**")) {
       return (
-        <strong key={i} className="font-bold text-foreground">
+        <strong key={i} className="font-semibold text-[#111827]">
           {part.slice(2, -2)}
         </strong>
       );
     }
     if (part.startsWith("`") && part.endsWith("`")) {
       return (
-        <code key={i} className="px-1.5 py-0.5 rounded bg-surface-elevated font-mono text-primary text-[11px] border border-border">
+        <code key={i} className="px-1.5 py-0.5 rounded-md bg-[#F3F4F6] font-mono text-[#26619C] text-xs border border-[#E5E7EB] font-semibold">
           {part.slice(1, -1)}
         </code>
       );
@@ -117,24 +116,25 @@ export default function MessageBubble({
 
   return (
     <div
-      className={`flex gap-3 ${isBot ? "justify-start" : "justify-end"} group animate-fade-in`}
-      style={{ animationDelay: `${Math.min(index * 50, 300)}ms` }}
+      className={`flex gap-2.5 md:gap-3 ${isBot ? "justify-start" : "justify-end"} group animate-fade-in`}
+      style={{ animationDelay: `${Math.min(index * 30, 200)}ms` }}
     >
       {/* Bot Avatar */}
       {isBot && (
-        <div className="shrink-0 mt-1">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#1a73e8] via-[#9b72cb] to-[#d96570] flex items-center justify-center p-0.5 shadow-lg shadow-[#9b72cb]/20">
-            <div className="w-full h-full bg-[#131924] rounded-[10px] flex items-center justify-center">
-              <svg className="w-4 h-4 text-[#4285F4]" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z" />
-              </svg>
-            </div>
+        <div className="shrink-0 mt-0.5">
+          <div className="w-7 h-7 md:w-8 md:h-8 rounded-xl overflow-hidden shadow-xs border border-[#E5E7EB] bg-white flex items-center justify-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo.png"
+              alt="BillBot"
+              className="w-full h-full object-cover"
+            />
           </div>
         </div>
       )}
 
       {/* Message Content */}
-      <div className={`max-w-[88%] md:max-w-[80%] ${message.type === "bill-summary" ? "w-full max-w-xl" : ""}`}>
+      <div className={`max-w-[92%] sm:max-w-[85%] md:max-w-[80%] ${message.type === "bill-summary" ? "w-full max-w-2xl" : ""}`}>
         {message.type === "bill-summary" && message.billData ? (
           <BillSummaryCard
             data={message.billData}
@@ -144,32 +144,32 @@ export default function MessageBubble({
         ) : (
           <div className="relative">
             <div
-              className={`rounded-3xl px-4 md:px-5 py-3.5 text-sm leading-relaxed ${
+              className={`rounded-2xl px-4 md:px-5 py-3 md:py-3.5 leading-relaxed text-sm ${
                 isBot
-                  ? "bg-[#131924]/90 text-foreground border border-white/10 rounded-tl-md shadow-md"
-                  : "bg-gradient-to-r from-[#1a73e8] to-[#4285F4] text-white font-medium rounded-tr-md shadow-lg shadow-[#4285F4]/20"
+                  ? "bg-white text-[#111827] border border-[#E5E7EB] rounded-tl-sm shadow-sm"
+                  : "bg-[#26619C] text-white font-medium rounded-tr-sm shadow-sm"
               }`}
             >
               {isBot ? renderFormattedMarkdown(message.content) : message.content}
             </div>
 
             {/* Quick Actions (Copy / Timestamp) */}
-            <div className={`flex items-center gap-2 mt-1 px-1 ${isBot ? "justify-start" : "justify-end"}`}>
-              <span className="text-[10px] text-muted-foreground/70">
+            <div className={`flex items-center gap-2 mt-1 px-1.5 ${isBot ? "justify-start" : "justify-end"}`}>
+              <span className="text-[10px] text-[#9CA3AF]">
                 {message.timestamp.toLocaleTimeString([], {
                   hour: "2-digit",
                   minute: "2-digit",
                 })}
               </span>
 
-              {isBot && (
+              {isBot && message.content && (
                 <button
                   onClick={handleCopy}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity p-1 text-muted-foreground hover:text-foreground rounded cursor-pointer"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 text-[#9CA3AF] hover:text-[#26619C] rounded cursor-pointer"
                   title="Copy response"
                 >
                   {copied ? (
-                    <span className="text-[10px] text-[#2dd4a8]">Copied!</span>
+                    <span className="text-[10px] text-[#26619C] font-semibold">Copied!</span>
                   ) : (
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -184,8 +184,8 @@ export default function MessageBubble({
 
       {/* User Avatar */}
       {!isBot && (
-        <div className="shrink-0 mt-1" title={userName}>
-          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#4285F4] to-[#9b72cb] text-white font-bold flex items-center justify-center text-xs shadow-md">
+        <div className="shrink-0 mt-0.5" title={userName}>
+          <div className="w-7 h-7 md:w-8 md:h-8 rounded-xl bg-gray-900 text-white font-bold flex items-center justify-center text-xs shadow-sm">
             {userAvatar}
           </div>
         </div>
@@ -196,20 +196,21 @@ export default function MessageBubble({
 
 export function TypingIndicator() {
   return (
-    <div className="flex gap-3 justify-start animate-fade-in">
-      <div className="shrink-0 mt-1">
-        <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-[#1a73e8] via-[#9b72cb] to-[#d96570] flex items-center justify-center p-0.5 shadow-lg shadow-[#9b72cb]/20">
-          <div className="w-full h-full bg-[#131924] rounded-[10px] flex items-center justify-center">
-            <svg className="w-4 h-4 text-[#4285F4]" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z" />
-            </svg>
-          </div>
+    <div className="flex gap-2.5 md:gap-3 justify-start animate-fade-in">
+      <div className="shrink-0 mt-0.5">
+        <div className="w-7 h-7 md:w-8 md:h-8 rounded-xl overflow-hidden shadow-xs border border-[#E5E7EB] bg-white flex items-center justify-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo.png"
+            alt="BillBot"
+            className="w-full h-full object-cover"
+          />
         </div>
       </div>
-      <div className="bg-[#131924] border border-white/10 rounded-2xl rounded-tl-md px-4 py-3 flex items-center gap-1.5 shadow-md">
-        <span className="w-2 h-2 rounded-full bg-[#4285F4] animate-bounce [animation-delay:-0.3s]" />
-        <span className="w-2 h-2 rounded-full bg-[#9b72cb] animate-bounce [animation-delay:-0.15s]" />
-        <span className="w-2 h-2 rounded-full bg-[#d96570] animate-bounce" />
+      <div className="bg-white border border-[#E5E7EB] rounded-2xl rounded-tl-sm px-4 py-3 flex items-center gap-1.5 shadow-sm">
+        <span className="w-2 h-2 rounded-full bg-[#26619C] animate-bounce [animation-delay:-0.3s]" />
+        <span className="w-2 h-2 rounded-full bg-[#3B7BBF] animate-bounce [animation-delay:-0.15s]" />
+        <span className="w-2 h-2 rounded-full bg-[#B9D7F2] animate-bounce" />
       </div>
     </div>
   );

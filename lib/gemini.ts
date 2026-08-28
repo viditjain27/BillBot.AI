@@ -71,6 +71,14 @@ Call the billing office at the hospital and state: *"I am disputing the out-of-n
 * **Out-of-Pocket Maximum:** The absolute ceiling cap you will pay in a single year. Once reached, your insurance pays 100% of all covered medical care.`;
   }
 
+  if (lower.includes("who are you") || lower.includes("introduce") || lower.includes("your name") || lower.includes("what are you")) {
+    return `I'm your **Medical Billing Assistance**.
+
+I'm here to help you understand confusing medical bills, translate technical billing codes (like CPT or SAC) into plain English, audit for potential errors or surprise fees, and guide you through disputes or negotiations with your provider.
+
+How can I help you with your bill today?`;
+  }
+
   return `### 📋 Medical Bill Analysis
 
 Based on the details provided:
@@ -134,7 +142,7 @@ export async function streamChat(
     ];
 
     const response = await ai.models.generateContentStream({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.6-flash",
       contents,
     });
 
@@ -221,7 +229,7 @@ export async function parseBill(
 
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.6-flash",
       contents: [
         {
           role: "user",
@@ -240,11 +248,21 @@ export async function parseBill(
 
     const rawText = response.text ?? "";
 
-    // Strip markdown code fences if present
+    // Extract JSON using regex (handles markdown blocks, text wrappers, or pure JSON)
     let jsonStr = rawText.trim();
-    if (jsonStr.startsWith("```")) {
-      jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+    const codeBlockMatch = rawText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (codeBlockMatch) {
+      jsonStr = codeBlockMatch[1].trim();
+    } else {
+      const braceMatch = rawText.match(/(\{[\s\S]*\})/);
+      if (braceMatch) {
+        jsonStr = braceMatch[1].trim();
+      }
     }
+
+    // Clean any trailing commas before closing braces/brackets
+    jsonStr = jsonStr.replace(/,\s*([}\]])/g, "$1");
+
     const parsed = JSON.parse(jsonStr);
     return { parsed, rawResponse: rawText };
   } catch (error) {

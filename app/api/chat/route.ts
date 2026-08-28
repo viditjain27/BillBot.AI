@@ -5,10 +5,11 @@ import { addMessage, getSession, createSession } from "@/lib/db";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { sessionId, message, history = [] } = body as {
+    const { sessionId, message, history = [], userEmail } = body as {
       sessionId?: string;
       message: string;
       history?: ChatMessage[];
+      userEmail?: string;
     };
 
     if (!message || typeof message !== "string") {
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
     // Ensure session exists
     let activeSessionId = sessionId;
     if (!activeSessionId || !getSession(activeSessionId)) {
-      const session = createSession();
+      const session = createSession(userEmail);
       activeSessionId = session.id;
     }
 
@@ -55,18 +56,20 @@ export async function POST(request: NextRequest) {
             `data: ${JSON.stringify({ done: true, sessionId: activeSessionId })}\n\n`
           )
         );
-        controller.terminate();
       },
     });
 
-    // Pipe the Gemini stream through the transform
-    geminiStream.pipeTo(transformStream.writable);
+    // Pipe the Gemini stream through the transform safely
+    geminiStream.pipeTo(transformStream.writable).catch((err) => {
+      console.error("Gemini stream pipe error:", err);
+    });
 
     return new Response(transformStream.readable, {
       headers: {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
         Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
         "X-Session-Id": activeSessionId,
       },
     });

@@ -79,9 +79,9 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    const otpCode = otp.join("");
-    if (otpCode.length !== 6) {
-      setErrorMessage("Please enter all 6 digits of the code.");
+    const otpStr = otp.join("");
+    if (otpStr.length < 6) {
+      setErrorMessage("Please enter all 6 digits.");
       return;
     }
 
@@ -92,11 +92,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
       const res = await fetch("/api/auth/verify-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: email.trim().toLowerCase(),
-          otp: otpCode,
-          customName: customName.trim(),
-        }),
+        body: JSON.stringify({ email: email.trim().toLowerCase(), otp: otpStr }),
       });
 
       const data = await res.json();
@@ -104,11 +100,19 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
         throw new Error(data.error || "Verification failed");
       }
 
-      setVerifiedUser(data.user);
-      setCustomName(data.user.name);
+      const sessionUser: UserSession = {
+        id: `session-${Date.now()}`,
+        email: data.email || email,
+        name: data.name || email.split("@")[0],
+        avatarInitial: (data.name || email)[0].toUpperCase(),
+        loginTime: new Date().toISOString(),
+      };
+
+      setVerifiedUser(sessionUser);
+      setCustomName(sessionUser.name);
       setStep("name");
     } catch (err: unknown) {
-      setErrorMessage(err instanceof Error ? err.message : "Invalid code");
+      setErrorMessage(err instanceof Error ? err.message : "Verification error");
     } finally {
       setIsLoading(false);
     }
@@ -116,101 +120,68 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
   const handleFinalConfirmName = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!verifiedUser) return;
-
-    const finalName = customName.trim() || verifiedUser.name;
+    const finalName = customName.trim() || "Patient";
     const finalUser: UserSession = {
-      ...verifiedUser,
+      ...(verifiedUser || {
+        id: `session-${Date.now()}`,
+        email,
+        loginTime: new Date().toISOString(),
+      }),
       name: finalName,
-      avatarInitial: finalName.charAt(0).toUpperCase() || "U",
+      avatarInitial: finalName[0].toUpperCase(),
     };
-
     onLoginSuccess(finalUser);
   };
 
   return (
-    <div className="relative min-h-screen w-full flex items-center justify-center bg-[#0b0f17] text-foreground p-4 overflow-hidden select-none">
-      {/* Dynamic Gemini Aurora Background Lights */}
-      <div className="absolute top-1/4 -left-20 w-96 h-96 bg-gradient-to-br from-[#4285F4]/20 to-[#9b72cb]/20 rounded-full blur-3xl pointer-events-none animate-pulse" />
-      <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-gradient-to-tl from-[#1a73e8]/20 to-[#2dd4a8]/20 rounded-full blur-3xl pointer-events-none animate-pulse" />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-radial from-[#9b72cb]/10 via-transparent to-transparent rounded-full blur-2xl pointer-events-none" />
+    <div className="relative min-h-screen w-full flex items-center justify-center bg-[#F7F9FB] text-[#111827] p-4 select-none">
+      {/* Soft Decorative Ambient Background */}
+      <div className="absolute top-1/4 -left-20 w-96 h-96 bg-[#EBF3FA] rounded-full blur-3xl pointer-events-none opacity-70" />
+      <div className="absolute bottom-1/4 -right-20 w-96 h-96 bg-blue-50 rounded-full blur-3xl pointer-events-none opacity-70" />
 
       {/* Main Login Card */}
-      <div className="relative z-10 w-full max-w-md bg-[#131924]/80 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 md:p-8 shadow-2xl shadow-black/80 flex flex-col items-center text-center">
-        {/* Cool BillBot Logo */}
-        <div className="relative mb-5 group">
-          <div className="absolute -inset-1 bg-gradient-to-r from-[#4285F4] via-[#9b72cb] to-[#2dd4a8] rounded-3xl blur-md opacity-75 group-hover:opacity-100 transition duration-500" />
-          <div className="relative w-16 h-16 rounded-2xl bg-[#0e131d] border border-white/15 flex items-center justify-center shadow-2xl p-2.5">
-            <svg
-              className="w-full h-full"
-              viewBox="0 0 48 48"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <defs>
-                <linearGradient id="bb-grad-primary" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#4285F4" />
-                  <stop offset="50%" stopColor="#9b72cb" />
-                  <stop offset="100%" stopColor="#2dd4a8" />
-                </linearGradient>
-                <linearGradient id="bb-grad-sparkle" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#5eead4" />
-                  <stop offset="100%" stopColor="#4285F4" />
-                </linearGradient>
-              </defs>
-              {/* Document / Shield Outline */}
-              <rect
-                x="8"
-                y="6"
-                width="32"
-                height="36"
-                rx="8"
-                stroke="url(#bb-grad-primary)"
-                strokeWidth="2.5"
-                fill="#131924"
-              />
-              {/* Medical Cross in Center */}
-              <rect x="21" y="14" width="6" height="18" rx="2" fill="url(#bb-grad-primary)" />
-              <rect x="15" y="20" width="18" height="6" rx="2" fill="url(#bb-grad-primary)" />
-              {/* AI Sparkle Stars */}
-              <path
-                d="M34 10L35.2 13.8L39 15L35.2 16.2L34 20L32.8 16.2L29 15L32.8 13.8L34 10Z"
-                fill="url(#bb-grad-sparkle)"
-              />
-              <circle cx="14" cy="36" r="1.5" fill="#2dd4a8" />
-              <circle cx="18" cy="36" r="1.5" fill="#4285F4" />
-            </svg>
-          </div>
+      <div className="relative z-10 w-full max-w-md bg-white border border-[#E5E7EB] rounded-2xl p-6 md:p-8 shadow-lg flex flex-col items-center text-center">
+        {/* Brand Logo */}
+        <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-md mb-3 border border-[#E5E7EB] bg-white flex items-center justify-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo.png"
+            alt="BillBot AI Logo"
+            className="w-full h-full object-cover"
+          />
         </div>
 
         {/* Title */}
-        <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-[#4285F4] via-[#9b72cb] to-[#2dd4a8] bg-clip-text text-transparent mb-6">
+        <h1 className="text-2xl font-extrabold tracking-tight text-[#111827]">
           BillBot AI
         </h1>
+        <p className="text-xs text-[#6B7280] mt-1 mb-6">
+          Your personal medical billing advocate & explainer
+        </p>
 
         {/* Step Indicators */}
-        <div className="flex items-center gap-2 mb-6">
+        <div className="flex items-center gap-1.5 mb-6">
           <div
             className={`h-1.5 rounded-full transition-all duration-300 ${
-              step === "email" ? "w-8 bg-[#4285F4]" : "w-2 bg-white/20"
+              step === "email" ? "w-8 bg-[#26619C]" : "w-2 bg-gray-200"
             }`}
           />
           <div
             className={`h-1.5 rounded-full transition-all duration-300 ${
-              step === "otp" ? "w-8 bg-[#9b72cb]" : "w-2 bg-white/20"
+              step === "otp" ? "w-8 bg-[#26619C]" : "w-2 bg-gray-200"
             }`}
           />
           <div
             className={`h-1.5 rounded-full transition-all duration-300 ${
-              step === "name" ? "w-8 bg-[#2dd4a8]" : "w-2 bg-white/20"
+              step === "name" ? "w-8 bg-[#26619C]" : "w-2 bg-gray-200"
             }`}
           />
         </div>
 
         {/* Error Alert */}
         {errorMessage && (
-          <div className="w-full mb-4 p-3 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-xs text-rose-400 flex items-center gap-2 text-left animate-fade-in">
-            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="w-full mb-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-center gap-2 text-left animate-fade-in">
+            <svg className="w-4 h-4 shrink-0 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <span>{errorMessage}</span>
@@ -219,9 +190,9 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
         {/* Success / OTP Auto-fill Notice */}
         {successMessage && step === "otp" && (
-          <div className="w-full mb-4 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-xs text-emerald-400 flex items-center justify-between animate-fade-in">
+          <div className="w-full mb-4 p-3 bg-[#EBF3FA] border border-[#B9D7F2] rounded-xl text-xs text-[#26619C] flex items-center justify-between animate-fade-in">
             <div className="flex items-center gap-2 text-left">
-              <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-4 h-4 shrink-0 text-[#26619C]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
               <span>{successMessage}</span>
@@ -230,7 +201,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
               <button
                 type="button"
                 onClick={handleAutoFillDemo}
-                className="px-2.5 py-1 bg-gradient-to-r from-[#4285F4] to-[#9b72cb] text-white text-[11px] font-bold rounded-lg hover:opacity-90 transition-opacity cursor-pointer shrink-0 shadow-sm"
+                className="px-2.5 py-1 bg-[#26619C] text-white text-[11px] font-bold rounded-lg hover:bg-[#1C4B79] transition-opacity cursor-pointer shrink-0 shadow-2xs"
               >
                 Auto-fill Code
               </button>
@@ -242,8 +213,8 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
         {step === "email" && (
           <form onSubmit={handleSendOtp} className="w-full space-y-4 text-left">
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-                Sign in with your Email
+              <label className="block text-xs font-bold text-[#374151] mb-1.5">
+                Email Address
               </label>
               <div className="relative">
                 <input
@@ -253,10 +224,10 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
                   placeholder="name@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-3.5 bg-white/5 border border-white/10 rounded-2xl text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-[#4285F4] focus:ring-1 focus:ring-[#4285F4] transition-all"
+                  className="w-full px-4 py-3 bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#26619C] focus:ring-2 focus:ring-[#26619C]/20 transition-all"
                 />
                 <svg
-                  className="w-5 h-5 absolute right-3.5 top-3.5 text-muted-foreground/60 pointer-events-none"
+                  className="w-5 h-5 absolute right-3.5 top-3.5 text-[#9CA3AF] pointer-events-none"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -274,7 +245,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
             <button
               type="submit"
               disabled={isLoading || !email.trim()}
-              className="w-full py-3.5 px-4 bg-gradient-to-r from-[#1a73e8] via-[#4285F4] to-[#9b72cb] text-white font-semibold rounded-2xl shadow-lg shadow-[#4285F4]/25 hover:opacity-95 active:scale-[0.99] transition-all disabled:opacity-40 cursor-pointer flex items-center justify-center gap-2"
+              className="w-full py-3 px-4 bg-[#26619C] hover:bg-[#1C4B79] text-white font-bold rounded-xl shadow-md shadow-[#26619C]/20 hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-40 cursor-pointer flex items-center justify-center gap-2"
             >
               {isLoading ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -295,19 +266,19 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
           <form onSubmit={handleVerifyOtp} className="w-full space-y-5 text-left">
             <div>
               <div className="flex justify-between items-center mb-2">
-                <label className="text-xs font-medium text-muted-foreground">
+                <label className="text-xs font-bold text-[#374151]">
                   Enter 6-Digit Code
                 </label>
                 <button
                   type="button"
                   onClick={() => setStep("email")}
-                  className="text-xs text-[#4285F4] hover:underline cursor-pointer"
+                  className="text-xs text-[#26619C] font-semibold hover:underline cursor-pointer"
                 >
                   Change email
                 </button>
               </div>
 
-              <div className="flex justify-between gap-2">
+              <div className="flex justify-between gap-1.5 sm:gap-2">
                 {otp.map((digit, idx) => (
                   <input
                     key={idx}
@@ -318,7 +289,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
                     value={digit}
                     onChange={(e) => handleOtpChange(idx, e.target.value)}
                     onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                    className="w-12 h-14 text-center text-xl font-bold bg-white/5 border border-white/10 rounded-2xl text-foreground focus:outline-none focus:border-[#9b72cb] focus:ring-1 focus:ring-[#9b72cb] transition-all shadow-inner"
+                    className="w-11 sm:w-12 h-13 text-center text-xl font-bold bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl text-[#111827] focus:outline-none focus:border-[#26619C] focus:ring-2 focus:ring-[#26619C]/20 transition-all"
                   />
                 ))}
               </div>
@@ -327,7 +298,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
             <button
               type="submit"
               disabled={isLoading || otp.join("").length < 6}
-              className="w-full py-3.5 px-4 bg-gradient-to-r from-[#4285F4] to-[#9b72cb] text-white font-semibold rounded-2xl shadow-lg shadow-[#9b72cb]/25 hover:opacity-95 active:scale-[0.99] transition-all disabled:opacity-40 cursor-pointer flex items-center justify-center gap-2"
+              className="w-full py-3 px-4 bg-[#26619C] hover:bg-[#1C4B79] text-white font-bold rounded-xl shadow-md shadow-[#26619C]/20 hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-40 cursor-pointer flex items-center justify-center gap-2"
             >
               {isLoading ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -342,8 +313,8 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
         {step === "name" && (
           <form onSubmit={handleFinalConfirmName} className="w-full space-y-4 text-left">
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-                Display Name (Fetched from email or customize)
+              <label className="block text-xs font-bold text-[#374151] mb-1.5">
+                Display Name
               </label>
               <input
                 type="text"
@@ -352,14 +323,14 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
                 placeholder="Your Name"
                 value={customName}
                 onChange={(e) => setCustomName(e.target.value)}
-                className="w-full px-4 py-3.5 bg-white/5 border border-white/10 rounded-2xl text-sm text-foreground focus:outline-none focus:border-[#2dd4a8] focus:ring-1 focus:ring-[#2dd4a8] transition-all"
+                className="w-full px-4 py-3 bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl text-sm text-[#111827] focus:outline-none focus:border-[#26619C] focus:ring-2 focus:ring-[#26619C]/20 transition-all"
               />
             </div>
 
             <button
               type="submit"
               disabled={isLoading || !customName.trim()}
-              className="w-full py-3.5 px-4 bg-gradient-to-r from-[#4285F4] via-[#9b72cb] to-[#2dd4a8] text-white font-semibold rounded-2xl shadow-lg shadow-[#2dd4a8]/20 hover:opacity-95 active:scale-[0.99] transition-all disabled:opacity-40 cursor-pointer flex items-center justify-center gap-2"
+              className="w-full py-3 px-4 bg-[#26619C] hover:bg-[#1C4B79] text-white font-bold rounded-xl shadow-md shadow-[#26619C]/20 hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-40 cursor-pointer flex items-center justify-center gap-2"
             >
               {isLoading ? (
                 <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />

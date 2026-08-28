@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyOtp } from "@/lib/otpStore";
-import { v4 as uuidv4 } from "uuid";
+import { upsertUser } from "@/lib/db";
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,13 +28,13 @@ export async function POST(request: NextRequest) {
       ? customName.trim()
       : result.defaultName;
 
-    // Ephemeral session token (not saved to database)
-    const sessionId = uuidv4();
+    // Save / update user in database
+    const dbUser = upsertUser(email.trim().toLowerCase(), finalName);
 
     return NextResponse.json({
       success: true,
       user: {
-        id: sessionId,
+        id: dbUser.id,
         name: finalName,
         email: email.trim().toLowerCase(),
         avatarInitial: finalName.charAt(0).toUpperCase() || "U",

@@ -13,6 +13,9 @@ interface ChatWindowProps {
   onOpenDisputeModal: (billData?: BillSummaryData) => void;
   initialPrompt?: string | null;
   onClearInitialPrompt?: () => void;
+  activeSessionId?: string | null;
+  onSessionCreated?: (sessionId: string) => void;
+  onSessionUpdated?: () => void;
 }
 
 export default function ChatWindow({
@@ -21,6 +24,9 @@ export default function ChatWindow({
   onOpenDisputeModal,
   initialPrompt,
   onClearInitialPrompt,
+  activeSessionId,
+  onSessionCreated,
+  onSessionUpdated,
 }: ChatWindowProps) {
   const [messages, setMessages] = useState<ChatMessageItem[]>([]);
   const [input, setInput] = useState("");
@@ -29,8 +35,17 @@ export default function ChatWindow({
   const [uploadFileName, setUploadFileName] = useState<string | null>(null);
   const [activeBill, setActiveBill] = useState<BillSummaryData | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(activeSessionId || null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionRef = useRef<any>(null);
+  const baseInputRef = useRef<string>("");
+
+  // Track bot reply count for "Connect to Human" feature
+  const botReplyCount = messages.filter((m) => m.role === "bot" && m.type !== "bill-summary").length;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -39,6 +54,118 @@ export default function ChatWindow({
   useEffect(() => {
     scrollToBottom();
   }, [messages, isLoading]);
+
+  // Load session messages when activeSessionId changes
+  useEffect(() => {
+    setCurrentSessionId(activeSessionId || null);
+
+    if (!activeSessionId) {
+      setMessages([]);
+      setActiveBill(null);
+      return;
+    }
+
+    let isMounted = true;
+    async function loadSessionData() {
+      try {
+        const res = await fetch(`/api/sessions/${activeSessionId}/messages`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!isMounted) return;
+
+        if (Array.isArray(data.messages)) {
+          const loadedMessages: ChatMessageItem[] = data.messages.map((m: {
+            id: string;
+            role: "user" | "bot";
+            content: string;
+            type: "text" | "bill-summary";
+            billData?: BillSummaryData | null;
+            timestamp: string;
+          }) => ({
+            id: m.id,
+            role: m.role,
+            content: m.content,
+            type: m.type,
+            billData: m.billData || undefined,
+            timestamp: new Date(m.timestamp),
+          }));
+
+          setMessages(loadedMessages);
+
+          // Restore active bill if present
+          const lastBillMsg = [...loadedMessages].reverse().find((m) => m.type === "bill-summary" && m.billData);
+          if (lastBillMsg?.billData) {
+            setActiveBill(lastBillMsg.billData);
+          } else {
+            setActiveBill(null);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load session messages:", err);
+      }
+    }
+
+    loadSessionData();
+    return () => {
+      isMounted = false;
+    };
+  }, [activeSessionId]);
+
+  const toggleVoiceInput = () => {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      alert("Speech recognition is not supported in your browser. Please try Chrome, Edge, or Safari.");
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = "en-US";
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        baseInputRef.current = input.trim();
+      };
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      recognition.onresult = (event: any) => {
+        let fullTranscript = "";
+        for (let i = 0; i < event.results.length; i++) {
+          fullTranscript += event.results[i][0].transcript;
+        }
+        const currentSpoken = fullTranscript.trim();
+        const base = baseInputRef.current;
+        setInput(base ? `${base} ${currentSpoken}` : currentSpoken);
+      };
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      recognition.onerror = (event: any) => {
+        console.error("Speech recognition error:", event.error);
+        setIsListening(false);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (err) {
+      console.error("Voice input error:", err);
+      setIsListening(false);
+    }
+  };
 
   const handleSend = useCallback(
     async (textToSend?: string) => {
@@ -70,13 +197,18 @@ export default function ChatWindow({
 
         let enrichedPrompt = messageText;
         if (activeBill) {
-          enrichedPrompt = `[CONTEXT: Active medical bill from "${activeBill.provider}", Total: $${activeBill.totalCharged}, Insurance Paid: $${activeBill.insuranceCovered}, Patient Owes: $${activeBill.patientBalance}]\n\nQuestion: ${messageText}`;
+          const curr = activeBill.currencySymbol || "$";
+          enrichedPrompt = `[PATIENT: ${user.name}]\n[CONTEXT: Active medical bill from "${activeBill.provider}", Currency: ${curr}, Total Charged: ${curr}${activeBill.totalCharged}, Insurance Paid: ${curr}${activeBill.insuranceCovered}, Patient Balance: ${curr}${activeBill.patientBalance}]\n\nQuestion: ${messageText}`;
+        } else {
+          enrichedPrompt = `[PATIENT: ${user.name}]\n\nQuestion: ${messageText}`;
         }
 
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            sessionId: currentSessionId || undefined,
+            userEmail: user.email,
             message: enrichedPrompt,
             history,
           }),
@@ -84,6 +216,12 @@ export default function ChatWindow({
 
         if (!res.ok) {
           throw new Error("Failed to get response");
+        }
+
+        const newSessionId = res.headers.get("X-Session-Id");
+        if (newSessionId && newSessionId !== currentSessionId) {
+          setCurrentSessionId(newSessionId);
+          onSessionCreated?.(newSessionId);
         }
 
         const reader = res.body?.getReader();
@@ -127,9 +265,7 @@ export default function ChatWindow({
                         )
                       );
                     }
-                  } catch {
-                    // Incomplete JSON chunk or control event, ignore
-                  }
+                  } catch {}
                 }
               }
             }
@@ -155,6 +291,9 @@ export default function ChatWindow({
             }
           }
         }
+
+        // Refresh sessions list
+        onSessionUpdated?.();
       } catch (err) {
         console.error("Chat error:", err);
         setMessages((prev) => [
@@ -163,7 +302,7 @@ export default function ChatWindow({
             id: `msg-${Date.now()}-err`,
             role: "bot",
             content:
-              "I ran into an issue connecting to Gemini. Please try asking again.",
+              "I ran into an issue connecting. Please try asking again.",
             timestamp: new Date(),
           },
         ]);
@@ -171,7 +310,7 @@ export default function ChatWindow({
         setIsLoading(false);
       }
     },
-    [input, isLoading, messages, activeBill]
+    [input, isLoading, messages, activeBill, user.name, user.email, currentSessionId, onSessionCreated, onSessionUpdated]
   );
 
   useEffect(() => {
@@ -195,6 +334,12 @@ export default function ChatWindow({
 
     const formData = new FormData();
     formData.append("file", file);
+    if (currentSessionId) {
+      formData.append("sessionId", currentSessionId);
+    }
+    if (user.email) {
+      formData.append("userEmail", user.email);
+    }
 
     try {
       const res = await fetch("/api/parse-bill", {
@@ -207,8 +352,18 @@ export default function ChatWindow({
         throw new Error(data.error || "Failed to parse bill");
       }
 
-      if (data.bill) {
-        const parsedData = data.bill;
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      if (data.sessionId && data.sessionId !== currentSessionId) {
+        setCurrentSessionId(data.sessionId);
+        onSessionCreated?.(data.sessionId);
+      }
+
+      const parsedData = data.bill || data.billMessage?.billData || data.parsed;
+
+      if (parsedData) {
         const lineItems = (parsedData.lineItems || []).map((li: Record<string, unknown>) => ({
           code: String(li.code || "Service"),
           description: String(li.description || "Medical Service"),
@@ -218,9 +373,11 @@ export default function ChatWindow({
           flag: li.flag ? String(li.flag) : undefined,
         }));
 
+        const currSymbol = String(parsedData.currencySymbol || "$");
         const parsedSummaryData: BillSummaryData = {
           provider: parsedData.provider || "Medical Provider",
           dateOfService: parsedData.dateOfService || "Recent Encounter",
+          currencySymbol: currSymbol,
           totalCharged: Number(parsedData.totalCharged || 0),
           insuranceCovered: Number(parsedData.insuranceCovered || 0),
           patientBalance: Number(parsedData.patientBalance || 0),
@@ -229,6 +386,10 @@ export default function ChatWindow({
         };
 
         setActiveBill(parsedSummaryData);
+
+        const followUpText =
+          data.followUpMessage?.content ||
+          `I've analyzed **${file.name}**. Above is your plain-English breakdown showing insurance contributions, patient responsibility, and any potential billing flags. Ask me any question about these charges!`;
 
         setMessages((prev) => [
           ...prev,
@@ -243,10 +404,15 @@ export default function ChatWindow({
           {
             id: `parse-${Date.now()}-text`,
             role: "bot",
-            content: `I've analyzed **${file.name}**. Above is your plain-English breakdown with insurance contributions and any potential billing concerns. How would you like to proceed?`,
+            content: followUpText,
             timestamp: new Date(),
           },
         ]);
+
+        // Refresh sessions list
+        onSessionUpdated?.();
+      } else {
+        throw new Error("Unable to extract structured details from this bill. Please ensure the photo/PDF is clear.");
       }
     } catch (err: unknown) {
       setMessages((prev) => [
@@ -295,184 +461,242 @@ export default function ChatWindow({
     e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
   };
 
+  const handleConnectToHuman = () => {
+    handleSend(
+      "I'm not satisfied with the answers so far and would like to speak to a human billing specialist. Please tell me: (1) What information I should have ready before calling, (2) Typical billing department phone hours, and (3) What to say when I call."
+    );
+  };
+
   return (
     <div
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className="relative flex flex-col h-full bg-[#0b0f17] text-foreground overflow-hidden"
+      className="relative flex flex-col h-full bg-[#F7F9FB] text-[#111827] overflow-hidden"
     >
       {/* Drag & Drop Overlay */}
       {isDragOver && (
-        <div className="absolute inset-0 z-40 bg-[#4285F4]/20 backdrop-blur-md border-2 border-dashed border-[#4285F4] flex items-center justify-center p-6 animate-fade-in">
-          <div className="bg-[#131924] p-6 rounded-3xl shadow-2xl text-center border border-white/10">
-            <div className="w-14 h-14 rounded-2xl bg-[#4285F4]/20 text-[#4285F4] mx-auto flex items-center justify-center mb-3">
-              <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-              </svg>
+        <div className="absolute inset-0 z-40 bg-[#26619C]/10 backdrop-blur-xs border-2 border-dashed border-[#26619C] flex items-center justify-center p-6 animate-fade-in">
+          <div className="bg-white p-6 rounded-2xl shadow-xl text-center border border-[#E5E7EB] max-w-sm">
+            <div className="w-14 h-14 rounded-2xl bg-[#EBF3FA] text-[#26619C] mx-auto flex items-center justify-center mb-3 text-2xl font-bold">
+              📄
             </div>
-            <h3 className="font-bold text-foreground text-sm">Drop medical bill or EOB</h3>
-            <p className="text-xs text-muted-foreground mt-1">Supports PDF, PNG, JPEG & WebP</p>
+            <h3 className="font-bold text-[#111827] text-sm">Drop medical bill or EOB</h3>
+            <p className="text-xs text-[#6B7280] mt-1">Supports PDF, PNG, JPG & WebP</p>
           </div>
         </div>
       )}
 
-      {/* Top Header */}
-      <header className="h-14 px-4 md:px-6 border-b border-white/10 bg-[#0e131d]/80 backdrop-blur-xl flex items-center justify-between shrink-0 z-10">
-        <div className="flex items-center gap-3">
+      {/* Top Header Navigation (Blinkit-inspired clean bar) */}
+      <header className="h-16 px-4 md:px-6 border-b border-[#E5E7EB] bg-white sticky top-0 flex items-center justify-between gap-3 shrink-0 z-20">
+        {/* Left Brand */}
+        <div className="flex items-center gap-2 md:gap-3 shrink-0">
           <button
             onClick={onToggleSidebar}
-            className="p-2 text-muted-foreground hover:text-foreground hover:bg-white/10 rounded-xl transition-colors cursor-pointer md:hidden"
-            title="Open sidebar"
+            className="p-2 text-[#6B7280] hover:text-[#111827] hover:bg-[#F3F4F6] rounded-xl transition-colors cursor-pointer flex items-center justify-center"
+            title="Toggle sidebar & history"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
             </svg>
           </button>
 
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-[#1a73e8] via-[#9b72cb] to-[#d96570] flex items-center justify-center p-0.5">
-              <div className="w-full h-full bg-[#0e131d] rounded-[6px] flex items-center justify-center">
-                <svg className="w-3.5 h-3.5 text-[#4285F4]" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z" />
-                </svg>
-              </div>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl overflow-hidden shadow-xs border border-[#E5E7EB] bg-white flex items-center justify-center shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/logo.png"
+                alt="BillBot AI"
+                className="w-full h-full object-cover"
+              />
             </div>
-            <span className="text-sm font-bold bg-gradient-to-r from-[#4285F4] to-[#9b72cb] bg-clip-text text-transparent">
-              BillBot
-            </span>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#4285F4]/15 text-[#4285F4] font-mono font-semibold">
-              AI Assistant
-            </span>
+            <div>
+              <span className="text-base font-extrabold text-[#111827] tracking-tight">
+                BillBot AI
+              </span>
+              <span className="hidden sm:inline-block ml-2 text-[10px] px-2 py-0.5 rounded-full bg-[#EBF3FA] text-[#26619C] font-bold">
+                Medical Billing Assistance
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Center Contextual Search Trigger Bar */}
+        <div className="hidden md:flex flex-1 max-w-lg mx-4">
+          <div
+            onClick={() => textareaRef.current?.focus()}
+            className="w-full bg-[#F3F4F6] hover:bg-[#E5E7EB]/70 border border-transparent hover:border-[#D1D5DB] rounded-xl px-3.5 py-2 flex items-center gap-2.5 cursor-text transition-all text-xs text-[#6B7280]"
+          >
+            <svg className="w-4 h-4 text-[#9CA3AF] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+            </svg>
+            <span className="truncate">Ask anything about your medical bill, charges or insurance...</span>
           </div>
         </div>
 
         {/* Right Session Badge */}
-        <div className="flex items-center gap-2">
-          {activeBill && (
-            <button
-              onClick={() => onOpenDisputeModal(activeBill)}
-              className="px-3 py-1.5 bg-[#d96570]/20 hover:bg-[#d96570]/30 border border-[#d96570]/40 text-[#d96570] text-xs font-semibold rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-              </svg>
-              <span>Dispute Letter</span>
-            </button>
-          )}
-
-          <div className="flex items-center gap-2 pl-2 border-l border-white/10">
-            <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-[#4285F4] to-[#9b72cb] text-white text-xs font-bold flex items-center justify-center shadow-sm">
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 pl-2">
+            <div className="w-8 h-8 rounded-full bg-[#26619C] text-white text-xs font-bold flex items-center justify-center shadow-sm">
               {user.avatarInitial}
             </div>
-            <span className="text-xs font-medium text-foreground hidden sm:inline">{user.name}</span>
+            <div className="hidden sm:block text-left">
+              <div className="text-xs font-bold text-[#111827] leading-none">{user.name}</div>
+              <div className="text-[10px] text-[#6B7280] leading-none mt-1">Patient Session</div>
+            </div>
           </div>
         </div>
       </header>
 
-      {/* Messages Scroll Area */}
+      {/* Messages / Dashboard Scroll Area */}
       <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-4">
         {messages.length === 0 ? (
-          /* GEMINI STYLE HERO GREETING & STARTERS */
-          <div className="max-w-3xl mx-auto py-8 md:py-16 space-y-8 animate-fade-in">
-            {/* Greeting */}
-            <div className="space-y-2">
-              <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight">
-                <span className="bg-gradient-to-r from-[#4285F4] via-[#9b72cb] to-[#d96570] bg-clip-text text-transparent">
-                  Hello, {user.name}
-                </span>
+          /* BLINKIT-INSPIRED HERO & DASHBOARD */
+          <div className="max-w-3xl mx-auto py-4 md:py-8 space-y-6 animate-fade-in">
+            {/* Header Greeting */}
+            <div className="text-center md:text-left space-y-1.5">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#EBF3FA] text-[#26619C] text-xs font-bold mb-1">
+                <span>👋</span>
+                <span>Welcome, {user.name}</span>
+              </div>
+              <h2 className="text-2xl md:text-3xl font-extrabold text-[#111827] tracking-tight">
+                Understand your medical bill in seconds.
               </h2>
-              <p className="text-xl md:text-2xl font-semibold text-muted-foreground/80">
-                How can I help you understand your medical bills today?
+              <p className="text-xs md:text-sm text-[#6B7280] max-w-xl">
+                Upload your medical bill or Explanation of Benefits (EOB) to get instant plain-English explanations, audit potential errors, and take action.
               </p>
             </div>
 
-            {/* Gemini Starter Action Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 pt-2">
-              <button
-                onClick={() => {
-                  const inputEl = document.getElementById("bill-upload-input");
-                  inputEl?.click();
-                }}
-                className="p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#4285F4]/40 text-left transition-all duration-200 cursor-pointer group shadow-sm flex flex-col justify-between min-h-[110px]"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-foreground group-hover:text-[#4285F4] transition-colors">
-                    Upload & analyze a medical bill
-                  </span>
-                  <div className="w-7 h-7 rounded-xl bg-[#4285F4]/15 text-[#4285F4] flex items-center justify-center shrink-0">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-                    </svg>
-                  </div>
-                </div>
-                <p className="text-[11px] text-muted-foreground mt-2">
-                  Upload an image or PDF of your bill or EOB for instant line-item breakdown.
-                </p>
-              </button>
+            {/* 4-Step Patient Journey Bar */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+              <div className="p-3 rounded-xl bg-white border border-[#E5E7EB] shadow-2xs">
+                <div className="text-xs font-bold text-[#26619C]">1. Upload Bill</div>
+                <div className="text-[11px] text-[#6B7280] mt-0.5">Photo or PDF file</div>
+              </div>
+              <div className="p-3 rounded-xl bg-white border border-[#E5E7EB] shadow-2xs">
+                <div className="text-xs font-bold text-[#26619C]">2. Understand</div>
+                <div className="text-[11px] text-[#6B7280] mt-0.5">Plain-English breakdown</div>
+              </div>
+              <div className="p-3 rounded-xl bg-white border border-[#E5E7EB] shadow-2xs">
+                <div className="text-xs font-bold text-[#26619C]">3. Ask Questions</div>
+                <div className="text-[11px] text-[#6B7280] mt-0.5">Text or Voice typing</div>
+              </div>
+              <div className="p-3 rounded-xl bg-white border border-[#E5E7EB] shadow-2xs">
+                <div className="text-xs font-bold text-[#26619C]">4. Dispute</div>
+                <div className="text-[11px] text-[#6B7280] mt-0.5">Automated dispute email</div>
+              </div>
+            </div>
 
-              <button
-                onClick={() =>
-                  handleSend("What are the most common medical billing errors or surprise out-of-network charges to watch out for?")
-                }
-                className="p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#9b72cb]/40 text-left transition-all duration-200 cursor-pointer group shadow-sm flex flex-col justify-between min-h-[110px]"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-foreground group-hover:text-[#9b72cb] transition-colors">
-                    Check for surprise billing & errors
-                  </span>
-                  <div className="w-7 h-7 rounded-xl bg-[#9b72cb]/15 text-[#9b72cb] flex items-center justify-center shrink-0">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                  </div>
-                </div>
-                <p className="text-[11px] text-muted-foreground mt-2">
-                  Understand your rights under the Federal No Surprises Act.
-                </p>
-              </button>
+            {/* Prominent Upload Card */}
+            <div className="p-6 md:p-8 rounded-2xl bg-white border-2 border-dashed border-[#26619C]/40 hover:border-[#26619C] transition-all text-center shadow-xs">
+              <div className="w-14 h-14 rounded-2xl bg-[#EBF3FA] text-[#26619C] mx-auto flex items-center justify-center mb-3 text-2xl font-bold">
+                📄
+              </div>
+              <h3 className="text-base md:text-lg font-bold text-[#111827]">
+                Upload your medical bill
+              </h3>
+              <p className="text-xs text-[#6B7280] mt-1 max-w-sm mx-auto">
+                PDF, JPG, PNG or WebP — works with hospital statements, pharmacy receipts, and insurance EOBs
+              </p>
 
-              <button
-                onClick={() =>
-                  handleSend("Explain how deductibles, copays, coinsurance, and out-of-pocket maximums work in plain English.")
-                }
-                className="p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#2dd4a8]/40 text-left transition-all duration-200 cursor-pointer group shadow-sm flex flex-col justify-between min-h-[110px]"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-foreground group-hover:text-[#2dd4a8] transition-colors">
-                    Insurance terms made simple
-                  </span>
-                  <div className="w-7 h-7 rounded-xl bg-[#2dd4a8]/15 text-[#2dd4a8] flex items-center justify-center shrink-0">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
-                    </svg>
-                  </div>
-                </div>
-                <p className="text-[11px] text-muted-foreground mt-2">
-                  Clear, jargon-free explanations of your health plan benefits.
-                </p>
-              </button>
+              <div className="mt-5 flex justify-center">
+                <button
+                  onClick={() => {
+                    const inputEl = document.getElementById("bill-upload-input");
+                    inputEl?.click();
+                  }}
+                  className="px-6 py-2.5 bg-[#26619C] hover:bg-[#1C4B79] text-white text-xs md:text-sm font-bold rounded-xl shadow-md shadow-[#26619C]/20 transition-all cursor-pointer flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                  </svg>
+                  <span>Choose Medical Bill to Analyze</span>
+                </button>
+              </div>
+            </div>
 
-              <button
-                onClick={() =>
-                  handleSend("How do I write a formal dispute letter for an unfair hospital or doctor bill?")
-                }
-                className="p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-[#d96570]/40 text-left transition-all duration-200 cursor-pointer group shadow-sm flex flex-col justify-between min-h-[110px]"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-foreground group-hover:text-[#d96570] transition-colors">
-                    Draft a formal dispute letter
-                  </span>
-                  <div className="w-7 h-7 rounded-xl bg-[#d96570]/15 text-[#d96570] flex items-center justify-center shrink-0">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                    </svg>
+            {/* Quick Action Starter Cards */}
+            <div className="space-y-2 pt-2">
+              <div className="text-xs font-bold uppercase tracking-wider text-[#6B7280]">
+                Common Billing Questions
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <button
+                  onClick={() =>
+                    handleSend("What are the most common medical billing errors or surprise out-of-network charges to watch out for?")
+                  }
+                  className="p-4 rounded-xl bg-white hover:bg-[#F9FAFB] border border-[#E5E7EB] hover:border-[#26619C]/40 text-left transition-all cursor-pointer group shadow-2xs flex items-start gap-3"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 text-sm font-bold mt-0.5">
+                    ⚠️
                   </div>
-                </div>
-                <p className="text-[11px] text-muted-foreground mt-2">
-                  Generate ready-to-mail letters to freeze collection and request an audit.
-                </p>
-              </button>
+                  <div>
+                    <div className="text-xs font-bold text-[#111827] group-hover:text-[#26619C] transition-colors">
+                      Check for surprise billing & errors
+                    </div>
+                    <div className="text-[11px] text-[#6B7280] mt-0.5 leading-relaxed">
+                      Understand your rights under consumer protections and the No Surprises Act.
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() =>
+                    handleSend("Explain how deductibles, copays, coinsurance, and out-of-pocket maximums work in plain English.")
+                  }
+                  className="p-4 rounded-xl bg-white hover:bg-[#F9FAFB] border border-[#E5E7EB] hover:border-[#26619C]/40 text-left transition-all cursor-pointer group shadow-2xs flex items-start gap-3"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-[#EBF3FA] text-[#26619C] flex items-center justify-center shrink-0 text-sm font-bold mt-0.5">
+                    📘
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-[#111827] group-hover:text-[#26619C] transition-colors">
+                      Insurance terms made simple
+                    </div>
+                    <div className="text-[11px] text-[#6B7280] mt-0.5 leading-relaxed">
+                      Clear, jargon-free explanations of deductibles, copays, and coinsurance.
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() =>
+                    handleSend("I have a dispute with my bill and want to draft an email. What details do you need from me?")
+                  }
+                  className="p-4 rounded-xl bg-white hover:bg-[#F9FAFB] border border-[#E5E7EB] hover:border-[#26619C]/40 text-left transition-all cursor-pointer group shadow-2xs flex items-start gap-3"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 text-sm font-bold mt-0.5">
+                    ✍️
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-[#111827] group-hover:text-[#26619C] transition-colors">
+                      Draft a formal dispute email
+                    </div>
+                    <div className="text-[11px] text-[#6B7280] mt-0.5 leading-relaxed">
+                      Answer 2 quick questions to get a customized, ready-to-send dispute letter.
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() =>
+                    handleSend("How can I negotiate a medical bill or ask the hospital for a cash settlement discount / financial aid?")
+                  }
+                  className="p-4 rounded-xl bg-white hover:bg-[#F9FAFB] border border-[#E5E7EB] hover:border-[#26619C]/40 text-left transition-all cursor-pointer group shadow-2xs flex items-start gap-3"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 text-sm font-bold mt-0.5">
+                    💬
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-[#111827] group-hover:text-[#26619C] transition-colors">
+                      Negotiate cash discount & aid
+                    </div>
+                    <div className="text-[11px] text-[#6B7280] mt-0.5 leading-relaxed">
+                      Tips on how to ask clinic accounts for cash settlement discounts.
+                    </div>
+                  </div>
+                </button>
+              </div>
             </div>
           </div>
         ) : (
@@ -493,11 +717,26 @@ export default function ChatWindow({
             {isLoading && <TypingIndicator />}
 
             {isUploading && (
-              <div className="flex items-center gap-3 p-3.5 bg-white/5 border border-[#4285F4]/40 rounded-2xl text-xs text-foreground animate-pulse max-w-md">
-                <div className="w-4 h-4 border-2 border-[#4285F4] border-t-transparent rounded-full animate-spin" />
+              <div className="flex items-center gap-3 p-3.5 bg-white border border-[#26619C]/30 rounded-2xl text-xs text-[#111827] shadow-sm animate-pulse max-w-md">
+                <div className="w-4 h-4 border-2 border-[#26619C] border-t-transparent rounded-full animate-spin shrink-0" />
                 <span>
                   Analyzing <strong>{uploadFileName}</strong> with vision OCR...
                 </span>
+              </div>
+            )}
+
+            {/* Connect to Human — appears after 3+ bot replies */}
+            {botReplyCount >= 3 && !isLoading && (
+              <div className="flex justify-center pt-2 animate-fade-in">
+                <button
+                  onClick={handleConnectToHuman}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold hover:bg-amber-100 hover:border-amber-300 transition-all cursor-pointer shadow-2xs"
+                >
+                  <svg className="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242m9.345-8.334a2.126 2.126 0 00-.476-.095 48.64 48.64 0 00-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0011.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155" />
+                  </svg>
+                  <span>Still have questions? Connect to a billing specialist</span>
+                </button>
               </div>
             )}
 
@@ -506,17 +745,17 @@ export default function ChatWindow({
         )}
       </div>
 
-      {/* Bottom Floating Input Area */}
-      <div className="p-3 md:p-4 bg-gradient-to-t from-[#0b0f17] via-[#0b0f17]/90 to-transparent shrink-0">
+      {/* Bottom Floating Input Area (Blinkit-inspired clean input) */}
+      <div className="p-3 md:p-4 bg-gradient-to-t from-[#F7F9FB] via-[#F7F9FB]/95 to-transparent shrink-0">
         <div className="max-w-3xl mx-auto space-y-2.5">
-          {/* Quick Prompts */}
+          {/* Quick Prompts Chips */}
           <QuickReplyChips
             onSelect={(q) => handleSend(q)}
             disabled={isLoading || isUploading}
           />
 
           {/* Floating Pill Input Box */}
-          <div className="relative flex items-end gap-2 bg-[#131924] border border-white/10 focus-within:border-[#4285F4]/60 focus-within:ring-1 focus-within:ring-[#4285F4]/40 rounded-3xl p-2.5 transition-all shadow-2xl shadow-black/80">
+          <div className="relative flex items-end gap-2 bg-white border border-[#E5E7EB] focus-within:border-[#26619C] focus-within:ring-2 focus-within:ring-[#26619C]/20 rounded-2xl p-2 transition-all shadow-md">
             <UploadButton onFileSelect={handleFileUpload} />
 
             <textarea
@@ -526,13 +765,39 @@ export default function ChatWindow({
               onChange={handleInputResize}
               onKeyDown={handleKeyDown}
               placeholder="Ask anything about your bill or upload an image/PDF..."
-              className="flex-1 bg-transparent resize-none text-xs md:text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none max-h-28 py-2 px-2 leading-relaxed"
+              className="flex-1 bg-transparent resize-none text-xs md:text-sm text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none max-h-28 py-2 px-1 leading-relaxed"
             />
 
+            {/* Voice Input Mic Button */}
+            <button
+              type="button"
+              onClick={toggleVoiceInput}
+              disabled={isLoading || isUploading}
+              className={`p-2.5 rounded-xl transition-all cursor-pointer flex items-center justify-center shrink-0 ${
+                isListening
+                  ? "bg-rose-500 text-white animate-pulse shadow-md ring-2 ring-rose-300"
+                  : "text-[#6B7280] hover:text-[#26619C] hover:bg-[#EBF3FA]"
+              }`}
+              title={isListening ? "Listening... Click to stop speaking" : "Speak to type question (Voice input)"}
+            >
+              {isListening ? (
+                <div className="flex items-center gap-0.5 px-1">
+                  <span className="w-1 h-3 bg-white rounded-full animate-bounce [animation-delay:-0.3s]" />
+                  <span className="w-1 h-4 bg-white rounded-full animate-bounce [animation-delay:-0.15s]" />
+                  <span className="w-1 h-3 bg-white rounded-full animate-bounce" />
+                </div>
+              ) : (
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15a3 3 0 003-3V6a3 3 0 00-3-3 3 3 0 00-3 3v6a3 3 0 003 3z" />
+                </svg>
+              )}
+            </button>
+
+            {/* Send Button */}
             <button
               onClick={() => handleSend()}
               disabled={!input.trim() || isLoading || isUploading}
-              className="p-2.5 rounded-full bg-gradient-to-tr from-[#1a73e8] via-[#4285F4] to-[#9b72cb] text-white font-semibold hover:opacity-95 active:scale-95 disabled:opacity-30 transition-all cursor-pointer shadow-lg shadow-[#4285F4]/20 shrink-0"
+              className="p-2.5 rounded-xl bg-[#26619C] text-white font-bold hover:bg-[#1C4B79] active:scale-95 disabled:opacity-30 transition-all cursor-pointer shadow-sm shrink-0"
               title="Send message"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -541,9 +806,9 @@ export default function ChatWindow({
             </button>
           </div>
 
-          <div className="flex items-center justify-between text-[10px] text-muted-foreground/70 px-2">
+          <div className="flex items-center justify-between text-[10px] text-[#9CA3AF] px-1">
             <span>Press Enter to send, Shift+Enter for new line</span>
-            <span>BillBot may display inaccurate info — verify with your provider</span>
+            <span>BillBot AI helps explain medical bills — verify charges with your provider</span>
           </div>
         </div>
       </div>

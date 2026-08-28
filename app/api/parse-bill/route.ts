@@ -7,6 +7,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
     let sessionId = formData.get("sessionId") as string | null;
+    const userEmail = formData.get("userEmail") as string | null;
 
     if (!file) {
       return Response.json({ error: "No file uploaded" }, { status: 400 });
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
 
     // Ensure session exists
     if (!sessionId || !getSession(sessionId)) {
-      const session = createSession();
+      const session = createSession(userEmail || undefined);
       sessionId = session.id;
     }
 
@@ -82,23 +83,25 @@ export async function POST(request: NextRequest) {
       file.name,
       file.type,
       parsed,
-      rawResponse
+      rawResponse,
+      userEmail
     );
 
     // Add a follow-up text message about the findings
     const notes = (parsed.notes as string[]) || [];
     const patientBalance = parsed.patientBalance as number;
+    const currency = (parsed.currencySymbol as string) || "₹";
     const hasFlags = (parsed.lineItems as Array<{ flag?: string }>)?.some(
       (item) => item.flag
     );
 
-    let followUpText = "Here's a breakdown of your bill! 👆\n\n";
+    let followUpText = "Here's a breakdown of your bill! 👇\n\n";
     if (hasFlags) {
       followUpText +=
         "⚠️ **I found some items worth checking** — see the flagged charges above.\n\n";
     }
     if (patientBalance) {
-      followUpText += `Your estimated balance is **$${patientBalance.toFixed(2)}**.\n\n`;
+      followUpText += `Your estimated balance is **${currency}${patientBalance.toFixed(2)}**.\n\n`;
     }
     if (notes.length > 0) {
       followUpText += "**Recommended next steps:**\n";
@@ -113,6 +116,7 @@ export async function POST(request: NextRequest) {
 
     return Response.json({
       sessionId,
+      bill: parsed,
       billMessage: {
         id: billMsg.id,
         role: "bot",
