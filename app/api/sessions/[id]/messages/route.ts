@@ -7,7 +7,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const messages = getMessages(id);
+    const messages = await getMessages(id);
 
     // Parse bill_data JSON strings back to objects
     const formatted = messages.map((msg) => ({
@@ -15,7 +15,7 @@ export async function GET(
       role: msg.role,
       content: msg.content,
       type: msg.type,
-      billData: msg.bill_data ? JSON.parse(msg.bill_data) : null,
+      billData: msg.bill_data ? (typeof msg.bill_data === "object" ? msg.bill_data : JSON.parse(msg.bill_data)) : null,
       timestamp: msg.created_at,
     }));
 

@@ -32,13 +32,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Ensure session exists
-    if (!sessionId || !getSession(sessionId)) {
-      const session = createSession(userEmail || undefined);
+    if (!sessionId || !(await getSession(sessionId))) {
+      const session = await createSession(userEmail || undefined);
       sessionId = session.id;
     }
 
     // Save user upload message
-    addMessage(
+    await addMessage(
       sessionId,
       "user",
       `📎 Uploaded: ${file.name}`,
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
 
     // Check for errors in parsing
     if (parsed.error) {
-      const errorMsg = addMessage(
+      const errorMsg = await addMessage(
         sessionId,
         "bot",
         parsed.error as string,
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Save bill summary message
-    const billMsg = addMessage(
+    const billMsg = await addMessage(
       sessionId,
       "bot",
       "",
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
     );
 
     // Save bill record
-    saveBill(
+    await saveBill(
       sessionId,
       billMsg.id,
       file.name,
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
     followUpText +=
       "\nWould you like me to explain any specific charge in more detail?";
 
-    const followUpMsg = addMessage(sessionId, "bot", followUpText, "text");
+    const followUpMsg = await addMessage(sessionId, "bot", followUpText, "text");
 
     return Response.json({
       sessionId,

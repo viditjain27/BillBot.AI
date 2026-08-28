@@ -7,7 +7,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const session = getSession(id);
+    const session = await getSession(id);
 
     if (!session) {
       return Response.json({ error: "Session not found" }, { status: 404 });
@@ -29,7 +29,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    deleteSession(id);
+    await deleteSession(id);
     return Response.json({ success: true });
   } catch (error) {
     console.error("Failed to delete session:", error);

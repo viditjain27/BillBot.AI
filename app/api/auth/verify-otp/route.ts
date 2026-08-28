@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyOtp } from "@/lib/otpStore";
-import { upsertUser } from "@/lib/db";
+import { verifyOtpFromDb, upsertUser } from "@/lib/db";
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,7 +13,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const result = verifyOtp(email, otp);
+    const result = await verifyOtpFromDb(email, otp);
 
     if (!result.success) {
       return NextResponse.json(
@@ -29,7 +28,7 @@ export async function POST(request: NextRequest) {
       : result.defaultName;
 
     // Save / update user in database
-    const dbUser = upsertUser(email.trim().toLowerCase(), finalName);
+    const dbUser = await upsertUser(email.trim().toLowerCase(), finalName);
 
     return NextResponse.json({
       success: true,

@@ -21,13 +21,13 @@ export async function POST(request: NextRequest) {
 
     // Ensure session exists
     let activeSessionId = sessionId;
-    if (!activeSessionId || !getSession(activeSessionId)) {
-      const session = createSession(userEmail);
+    if (!activeSessionId || !(await getSession(activeSessionId))) {
+      const session = await createSession(userEmail);
       activeSessionId = session.id;
     }
 
     // Save user message to DB
-    addMessage(activeSessionId, "user", message, "text");
+    await addMessage(activeSessionId, "user", message, "text");
 
     // Stream Gemini response
     const geminiStream = await streamChat(message, history);
@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
       async flush(controller) {
         // Save the complete bot response to DB
         try {
-          addMessage(activeSessionId!, "bot", fullResponse, "text");
+          await addMessage(activeSessionId!, "bot", fullResponse, "text");
         } catch (e) {
           console.error("Failed to save bot message:", e);
         }

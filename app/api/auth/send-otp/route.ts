@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateAndSaveOtp } from "@/lib/otpStore";
+import { saveOtpToDb } from "@/lib/db";
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,10 +13,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { otp, expiresAt } = generateAndSaveOtp(email);
+    // Generate secure 6-digit numeric OTP
+    const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    const { otp, expiresAt } = await saveOtpToDb(email, generatedOtp);
 
-    // In a production app with SMTP, you would send an email here via Resend/SendGrid.
-    // For fast judging and demonstration, we return the OTP code in response and log it.
     console.log(`[AUTH] Sent OTP to ${email}: ${otp}`);
 
     return NextResponse.json({

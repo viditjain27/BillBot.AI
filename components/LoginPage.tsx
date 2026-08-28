@@ -36,7 +36,14 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
         body: JSON.stringify({ email: email.trim().toLowerCase() }),
       });
 
-      const data = await res.json();
+      const text = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = { error: text || "Server returned an invalid response" };
+      }
+
       if (!res.ok) {
         throw new Error(data.error || "Failed to send verification code");
       }
@@ -95,16 +102,23 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
         body: JSON.stringify({ email: email.trim().toLowerCase(), otp: otpStr }),
       });
 
-      const data = await res.json();
+      const text = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = { error: text || "Server returned an invalid response" };
+      }
+
       if (!res.ok) {
         throw new Error(data.error || "Verification failed");
       }
 
       const sessionUser: UserSession = {
-        id: `session-${Date.now()}`,
-        email: data.email || email,
-        name: data.name || email.split("@")[0],
-        avatarInitial: (data.name || email)[0].toUpperCase(),
+        id: data.user?.id || `session-${Date.now()}`,
+        email: data.user?.email || email,
+        name: data.user?.name || data.name || email.split("@")[0],
+        avatarInitial: (data.user?.name || data.name || email)[0].toUpperCase(),
         loginTime: new Date().toISOString(),
       };
 

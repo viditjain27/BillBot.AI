@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
       return Response.json({ sessions: [] });
     }
 
-    const sessions = getUserSessions(email);
+    const sessions = await getUserSessions(email);
     return Response.json({ sessions });
   } catch (error) {
     console.error("Failed to get sessions:", error);
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
       // Empty body is okay
     }
 
-    const session = createSession(userEmail, title);
+    const session = await createSession(userEmail, title);
     return Response.json({ sessionId: session.id, session }, { status: 201 });
   } catch (error) {
     console.error("Failed to create session:", error);

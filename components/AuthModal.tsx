@@ -117,13 +117,20 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
         }),
       });
 
-      const data = await res.json();
+      const text = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = { error: text || "Server returned an invalid response" };
+      }
+
       if (!res.ok) {
         throw new Error(data.error || "Verification failed");
       }
 
       setVerifiedUser(data.user);
-      setCustomName(data.user.name);
+      setCustomName(data.user?.name || customName || "Patient");
       setStep("name");
     } catch (err: unknown) {
       setErrorMessage(err instanceof Error ? err.message : "Invalid code");
