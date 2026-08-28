@@ -33,6 +33,17 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# database
+/data/
+*.sqlite
+*.sqlite3
+*.db
+
+# private documentation & build plans
+approached.md
+patient-billing-chatbot-build-plan.md
+patient-billing-chatbout-build-plan.md
+
 # vercel
 .vercel
 
