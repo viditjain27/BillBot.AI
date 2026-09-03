@@ -1,112 +1,217 @@
-# BillBot AI — Patient Advisour & Medical Billing Assistance
+<div align="center">
 
-**BillBot AI** is an intelligent, patient-first conversational AI web application designed to simplify medical bills, translate complex billing codes into plain English, audit for potential errors or surprise fees, and generate personalized dispute letters.
+<img src="https://raw.githubusercontent.com/twemoji/twemoji/master/assets/72x72/1f4c4.png" width="72" alt="BillBot AI logo"/>
 
-Powered by **Google Gemini 3.6 Flash** multimodal intelligence, BillBot AI empowers patients to understand exactly what they were charged for, what insurance covered, what they owe, and what action to take next.
+# BillBot AI
+
+### Your medical bill, explained in plain English — in seconds.
+
+BillBot AI reads confusing hospital bills and insurance EOBs, flags possible errors,
+and tells you exactly what you owe and why — powered end-to-end by Google Gemini.
+
+<p>
+  <img src="https://img.shields.io/badge/Next.js-16-000000?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js"/>
+  <img src="https://img.shields.io/badge/React-19-149ECA?style=for-the-badge&logo=react&logoColor=white" alt="React"/>
+  <img src="https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript"/>
+  <img src="https://img.shields.io/badge/TailwindCSS-4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white" alt="Tailwind CSS"/>
+  <img src="https://img.shields.io/badge/Google_Gemini-3.6_Flash-4285F4?style=for-the-badge&logo=googlegemini&logoColor=white" alt="Gemini"/>
+  <img src="https://img.shields.io/badge/SQLite-better--sqlite3-003B57?style=for-the-badge&logo=sqlite&logoColor=white" alt="SQLite"/>
+</p>
+
+<p>
+  <img src="https://img.shields.io/badge/status-hackathon_MVP-orange?style=flat-square" alt="status"/>
+  <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="license"/>
+  <img src="https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square" alt="PRs welcome"/>
+</p>
+
+[Features](#-features) •
+[Screenshots](#-screenshots) •
+[Getting Started](#-getting-started) •
+[Architecture](#-architecture) •
+[Project Structure](#-project-structure) •
+[Roadmap](#-roadmap) •
+[Authors](#-authors)
+
+</div>
 
 ---
 
-## 🌟 Key Features
+## 💡 The Problem
 
-- 📄 **Multimodal Bill & EOB Parsing**: Upload medical bills or Explanation of Benefits (EOB) statements in PDF, PNG, JPEG, or WebP format. BillBot extracts provider names, dates of service, itemized charges, insurance adjustments, and patient responsibility.
-- 💬 **Plain-English Medical Billing Explanations**: Translates confusing medical billing codes (such as CPT, HCPCS, SAC codes, Level 4 ER facility fees) and terminology (deductible, coinsurance, copay, out-of-pocket max) into accessible 8th-grade language.
-- 🚩 **Automatic Error & Flag Detection**: Audits statements for potential billing red flags, out-of-network balance billing under the No Surprises Act, duplicate tests, and unbundled charges.
-- ✉️ **Interactive Dispute Email Writer**: Generates customized, ready-to-send formal dispute emails to hospital billing departments with no placeholder brackets.
-- 🎙️ **Voice-to-Text Speech Input**: Built-in speech recognition for asking questions hands-free.
-- 💾 **Persistent Chat & Query History**: SQLite-backed conversation and query persistence with session management, deletion, and auto-titling.
-- 🔐 **Patient Authentication**: Seamless email & OTP verification session flow with local state caching.
-- ⚡ **Real-Time Streaming**: Low-latency token streaming for fluid conversational responses.
+Patients routinely receive medical bills and insurance EOBs full of cryptic CPT/HCPCS
+codes, unexplained balances, and surprise out-of-network charges. Most people can't
+tell what they're being charged for, whether it's correct, or who to even call about
+it — so they either overpay or give up and call the billing office, over and over.
 
----
+## ✨ Features
 
-## 🛠️ Tech Stack
+| | Feature | Description |
+|---|---|---|
+| 📄 | **Multimodal Bill & EOB Parsing** | Upload a bill or EOB as PDF, PNG, JPEG, or WebP — Gemini reads it directly, no OCR pipeline needed. |
+| 💬 | **Plain-English Explanations** | Confusing codes and terms (CPT, HCPCS, deductible, coinsurance) translated to simple, 8th-grade-level language. |
+| 🚩 | **Automatic Error Detection** | Flags potential billing errors, No Surprises Act violations, duplicate charges, and unbundled fees. |
+| ✉️ | **Dispute Letter Generator** | Drafts a ready-to-send, fully-written formal dispute email — no placeholder brackets. |
+| 🎙️ | **Voice Input** | Ask questions hands-free with built-in speech-to-text. |
+| 💾 | **Persistent Chat History** | SQLite-backed sessions with auto-titling, resuming, and deletion. |
+| 🔐 | **Passwordless Auth** | Email + OTP sign-in — zero passwords ever touch the database. |
+| ⚡ | **Real-Time Streaming** | Responses stream token-by-token for a natural, live conversational feel. |
+| 📱 | **Responsive / PWA-ready** | One codebase, works on desktop and mobile browsers alike. |
 
-- **Framework**: [Next.js 16](https://nextjs.org/) (App Router, Turbopack)
-- **UI & Components**: [React 19](https://react.dev/), [Tailwind CSS 4](https://tailwindcss.com/)
-- **AI / LLM**: [Google Gen AI SDK (`@google/genai`)](https://www.npmjs.com/package/@google/genai) — `gemini-3.6-flash`
-- **Database**: [Better-SQLite3](https://github.com/WiseLibs/better-sqlite3) for lightweight, persistent local data storage
-- **Language**: TypeScript
+## 🖼️ Screenshots
 
----
+<div align="center">
+
+**Landing — Upload & Quick Questions**
+<img src="./screenshots/01-landing-upload.png" width="800" alt="BillBot AI landing page with upload zone and quick-reply questions"/>
+
+**Bill Analysis — Itemized Breakdown & Flags**
+<img src="./screenshots/02-bill-analysis-card.png" width="800" alt="Parsed bill summary card showing itemized charges and a flagged discrepancy"/>
+
+**Chat History & Conversational Follow-ups**
+<img src="./screenshots/03-chat-sidebar-history.png" width="800" alt="Sidebar with query history alongside a streamed plain-English answer"/>
+
+**Passwordless Sign-In**
+<img src="./screenshots/04-login-otp-auth.png" width="500" alt="Email and OTP based passwordless login screen"/>
+
+</div>
+
+## 🏗️ Architecture
+
+```
+┌─────────────────────┐        ┌──────────────────────────┐        ┌───────────────────┐
+│   Next.js Frontend   │──────▶│   Next.js API Routes      │──────▶│   Google Gemini    │
+│  (React 19, Tailwind)│        │  /api/chat  /api/parse-bill│       │  3.6 Flash (multimodal)│
+│  Chat UI, Upload,     │◀──────│  /api/auth  /api/sessions │◀──────│  streamed responses │
+│  Bill Summary Cards   │        │  (server-side API key)    │        └───────────────────┘
+└─────────────────────┘        └──────────────────────────┘
+           │                                │
+           ▼                                ▼
+   localStorage (session token)     better-sqlite3 (chat/session history)
+```
+
+The Gemini API key **never** reaches the browser — every model call is proxied through
+a Next.js API route on the server.
 
 ## 🚀 Getting Started
 
-### 1. Clone the Repository
+### Prerequisites
+- [Node.js](https://nodejs.org/) 18.18+ (Next.js 16 requirement)
+- A free [Google Gemini API key](https://aistudio.google.com/apikey)
 
+### 1. Clone the repository
 ```bash
 git clone https://github.com/viditjain27/BillBot.AI.git
 cd BillBot.AI
 ```
 
-### 2. Install Dependencies
-
+### 2. Install dependencies
 ```bash
 npm install
 ```
 
-### 3. Configure Environment Variables
-
-Create a `.env.local` file in the root directory:
-
+### 3. Configure environment variables
 ```bash
 cp .env.example .env.local
 ```
-
-Add your Google Gemini API key:
-
+Then add your key to `.env.local`:
 ```env
-# Gemini API Key — Get yours from Google AI Studio: https://aistudio.google.com/apikey
 GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
-### 4. Run the Development Server
-
+### 4. Run the development server
 ```bash
 npm run dev
 ```
+Open **[http://localhost:3000](http://localhost:3000)** in your browser. 🎉
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
-
----
+> **No Gemini key yet?** The app automatically falls back to realistic simulated
+> responses so you can demo the full UI/UX without one.
 
 ## 📁 Project Structure
 
 ```
+BillBot.AI/
 ├── app/
 │   ├── api/
-│   │   ├── auth/          # OTP generation & verification endpoints
-│   │   ├── chat/          # Real-time streaming chat endpoint
-│   │   ├── parse-bill/    # Multimodal image & PDF bill parser
-│   │   └── sessions/      # Session CRUD & message history endpoints
-│   ├── globals.css        # Global CSS design tokens
-│   ├── layout.tsx         # Root layout with SEO meta tags
-│   └── page.tsx           # Main application workspace & state orchestrator
+│   │   ├── auth/            # OTP generation & verification
+│   │   ├── chat/             # Streaming chat endpoint
+│   │   ├── parse-bill/       # Multimodal bill/EOB parser
+│   │   └── sessions/         # Session CRUD & message history
+│   ├── globals.css
+│   ├── layout.tsx
+│   └── page.tsx              # App shell & state orchestrator
 ├── components/
-│   ├── AuthModal.tsx      # Authentication & OTP modal
-│   ├── BillSummaryCard.tsx# Interactive structured bill breakdown card
-│   ├── ChatWindow.tsx     # Chat messages, input bar, voice & file upload
-│   ├── DisputeLetterModal.tsx # Formal dispute letter builder
-│   ├── LoginPage.tsx      # Patient onboarding & login view
-│   ├── MessageBubble.tsx  # Markdown message bubbles & typing indicator
-│   ├── QuickReplyChips.tsx# Common medical billing prompt chips
-│   ├── Sidebar.tsx        # Query history, navigation, & user profile
-│   └── UploadButton.tsx   # Bill upload drag-and-drop button
+│   ├── AuthModal.tsx         # Email + OTP auth flow
+│   ├── BillSummaryCard.tsx   # Structured bill breakdown card
+│   ├── ChatWindow.tsx        # Messages, input bar, upload, voice
+│   ├── DisputeLetterModal.tsx
+│   ├── LoginPage.tsx
+│   ├── MessageBubble.tsx
+│   ├── QuickReplyChips.tsx
+│   ├── Sidebar.tsx
+│   └── UploadButton.tsx
 ├── lib/
-│   ├── db.ts              # SQLite database schema and helper functions
-│   ├── gemini.ts          # Gemini 3.6 Flash SDK integration & stream handlers
-│   └── prompts.ts         # System prompts for billing assistance and parsing
-└── public/                # Static assets & logos
+│   ├── db.ts                 # SQLite schema & helpers
+│   ├── gemini.ts              # Gemini SDK integration + streaming
+│   └── prompts.ts             # System prompts
+├── screenshots/               # README screenshots (see below)
+└── public/
 ```
-
----
 
 ## 🔒 Security & Privacy
 
-- All sensitive keys (`.env*`) and local database files (`data/*.db`) are strictly excluded via `.gitignore`.
-- Medical bills uploaded during a session are parsed securely for the active patient session and kept localized.
+- Passwordless email + OTP auth — **no passwords are ever stored.**
+- `.env*` files and local database files (`data/*.db`) are excluded via `.gitignore`.
+- All Gemini calls happen server-side; the API key never reaches the client.
+- Uploaded bills are processed for the active session and not shared with third parties.
 
----
+## 🗺️ Roadmap
+
+- [ ] Google OAuth as an alternative sign-in option
+- [ ] Optional encrypted, opt-in cloud storage for saved bills
+- [ ] Multi-language plain-English explanations
+- [ ] Native app packaging (Capacitor)
+
+## 🤝 Contributing
+
+Contributions, issues, and feature requests are welcome! Feel free to check the
+[issues page](https://github.com/viditjain27/BillBot.AI/issues).
 
 ## 📜 License
 
-MIT License.
+Distributed under the **MIT License**. See `LICENSE` for details.
+
+---
+
+## 👥 Authors
+
+<div align="center">
+
+<table>
+  <tr>
+    <td align="center">
+      <b>Vidit Jain</b><br/><br/>
+      <a href="https://www.linkedin.com/in/viditjain2704/">
+        <img src="https://img.shields.io/badge/LinkedIn-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white" alt="Vidit Jain LinkedIn"/>
+      </a>
+      <br/>
+      <a href="mailto:vidit0027@gmail.com">
+        <img src="https://img.shields.io/badge/Gmail-EA4335?style=for-the-badge&logo=gmail&logoColor=white" alt="Vidit Jain Email"/>
+      </a>
+    </td>
+    <td align="center">
+      <b>Jahnavi Vaddi</b><br/><br/>
+      <img src="https://img.shields.io/badge/Contributor-6f42c1?style=for-the-badge" alt="Jahnavi Vaddi"/>
+    </td>
+    <td align="center">
+      <b>Anushka Singh</b><br/><br/>
+      <img src="https://img.shields.io/badge/Contributor-6f42c1?style=for-the-badge" alt="Anushka Singh"/>
+    </td>
+  </tr>
+</table>
+
+</div>
+
+<div align="center">
+<sub>Built with ☕, 🤖 Gemini, and way too many browser tabs about CPT codes.</sub>
+</div>
