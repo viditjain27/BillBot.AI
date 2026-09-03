@@ -16,6 +16,7 @@ and tells you exactly what you owe and why — powered end-to-end by Google Gemi
   <img src="https://img.shields.io/badge/TailwindCSS-4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white" alt="Tailwind CSS"/>
   <img src="https://img.shields.io/badge/Google_Gemini-3.6_Flash-4285F4?style=for-the-badge&logo=googlegemini&logoColor=white" alt="Gemini"/>
   <img src="https://img.shields.io/badge/SQLite-better--sqlite3-003B57?style=for-the-badge&logo=sqlite&logoColor=white" alt="SQLite"/>
+  <img src="https://img.shields.io/badge/Built_with-Antigravity-9b5de5?style=for-the-badge&logo=sparkles&logoColor=white" alt="Antigravity"/>
 </p>
 
 <p>
@@ -24,13 +25,16 @@ and tells you exactly what you owe and why — powered end-to-end by Google Gemi
   <img src="https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square" alt="PRs welcome"/>
 </p>
 
-[Features](#-features) •
-[Screenshots](#-screenshots) •
-[Getting Started](#-getting-started) •
-[Architecture](#-architecture) •
-[Project Structure](#-project-structure) •
-[Roadmap](#-roadmap) •
-[Authors](#-authors)
+<p>
+  <a href="#-features"><img src="https://img.shields.io/badge/Features-FF6B6B?style=flat-square&logoColor=white" alt="Features"/></a>
+  <a href="#️-tech-stack"><img src="https://img.shields.io/badge/Tech_Stack-4D96FF?style=flat-square&logoColor=white" alt="Tech Stack"/></a>
+  <a href="#-screenshots"><img src="https://img.shields.io/badge/Screenshots-9B5DE5?style=flat-square&logoColor=white" alt="Screenshots"/></a>
+  <a href="#-getting-started"><img src="https://img.shields.io/badge/Getting_Started-00C49A?style=flat-square&logoColor=white" alt="Getting Started"/></a>
+  <a href="#-architecture"><img src="https://img.shields.io/badge/Architecture-FFA630?style=flat-square&logoColor=white" alt="Architecture"/></a>
+  <a href="#-project-structure"><img src="https://img.shields.io/badge/Project_Structure-118AB2?style=flat-square&logoColor=white" alt="Project Structure"/></a>
+  <a href="#️-roadmap"><img src="https://img.shields.io/badge/Roadmap-EF476F?style=flat-square&logoColor=white" alt="Roadmap"/></a>
+  <a href="#-authors"><img src="https://img.shields.io/badge/Authors-06D6A0?style=flat-square&logoColor=white" alt="Authors"/></a>
+</p>
 
 </div>
 
@@ -57,6 +61,21 @@ it — so they either overpay or give up and call the billing office, over and o
 | ⚡ | **Real-Time Streaming** | Responses stream token-by-token for a natural, live conversational feel. |
 | 📱 | **Responsive / PWA-ready** | One codebase, works on desktop and mobile browsers alike. |
 
+## 🛠️ Tech Stack
+
+| Layer | Tool / Tech |
+|---|---|
+| **Frontend Framework** | Next.js 16 (App Router) |
+| **UI Library** | React 19 |
+| **Language** | TypeScript 5 |
+| **Styling** | Tailwind CSS 4 |
+| **AI Model** | Google Gemini API — **`gemini-3.6-flash`** (multimodal, streaming) |
+| **AI SDK** | `@google/genai` |
+| **Database** | `better-sqlite3` (local, lightweight persistence) |
+| **Auth** | Passwordless Email + OTP |
+| **Deployment** | Vercel |
+| **Vibe Coding / AI Build Tool** | **Antigravity** |
+
 ## 🖼️ Screenshots
 
 <div align="center">
@@ -65,11 +84,11 @@ it — so they either overpay or give up and call the billing office, over and o
 
 <img src="./screenshots/04-login-otp-auth.png" width="500" alt="Email and OTP based passwordless login screen"/>
 
-**Landing — Upload & Quick Questions**
+**Landing - Upload & Quick Questions**
 
 <img src="./screenshots/01-landing-upload.png" width="800" alt="BillBot AI landing page with upload zone and quick-reply questions"/>
 
-**Bill Analysis — Itemized Breakdown & Flags**
+**Bill Analysis - Itemized Breakdown & Flags**
 
 <img src="./screenshots/02-bill-analysis-card.png" width="800" alt="Parsed bill summary card showing itemized charges and a flagged discrepancy"/>
 
@@ -176,10 +195,6 @@ BillBot.AI/
 - [ ] Multi-language plain-English explanations
 - [ ] Native app packaging (Capacitor)
 
-## 🤝 Contributing
-
-Contributions, issues, and feature requests are welcome! Feel free to check the
-[issues page](https://github.com/viditjain27/BillBot.AI/issues).
 
 ## 📜 License
 
