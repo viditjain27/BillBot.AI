@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/twemoji/twemoji/master/assets/72x72/1f4c4.png" width="72" alt="BillBot AI logo"/>
+<img src="./assets/logo.png" width="96" alt="BillBot AI logo"/>
 
 # BillBot AI
 
@@ -61,17 +61,21 @@ it — so they either overpay or give up and call the billing office, over and o
 
 <div align="center">
 
+**Passwordless Sign-In**
+
+<img src="./screenshots/04-login-otp-auth.png" width="500" alt="Email and OTP based passwordless login screen"/>
+
 **Landing — Upload & Quick Questions**
+
 <img src="./screenshots/01-landing-upload.png" width="800" alt="BillBot AI landing page with upload zone and quick-reply questions"/>
 
 **Bill Analysis — Itemized Breakdown & Flags**
+
 <img src="./screenshots/02-bill-analysis-card.png" width="800" alt="Parsed bill summary card showing itemized charges and a flagged discrepancy"/>
 
 **Chat History & Conversational Follow-ups**
-<img src="./screenshots/03-chat-sidebar-history.png" width="800" alt="Sidebar with query history alongside a streamed plain-English answer"/>
 
-**Passwordless Sign-In**
-<img src="./screenshots/04-login-otp-auth.png" width="500" alt="Email and OTP based passwordless login screen"/>
+<img src="./screenshots/03-chat-sidebar-history.png" width="800" alt="Sidebar with query history alongside a streamed plain-English answer"/>
 
 </div>
 
