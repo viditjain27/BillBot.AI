@@ -4,10 +4,16 @@
 
 # BillBot AI
 
-### Your medical bill, explained in plain English — in seconds.
+### Your medical bill, explained in plain English - in seconds.
 
 BillBot AI reads confusing hospital bills and insurance EOBs, flags possible errors,
 and tells you exactly what you owe and why — powered end-to-end by Google Gemini.
+
+<p>
+  <a href="https://bill-bot-ai-three.vercel.app/">
+    <img src="https://img.shields.io/badge/Live_Demo-bill--bot--ai--three.vercel.app-000000?style=for-the-badge&logo=vercel&logoColor=white" alt="Live Demo"/>
+  </a>
+</p>
 
 <p>
   <img src="https://img.shields.io/badge/Next.js-16-000000?style=for-the-badge&logo=next.js&logoColor=white" alt="Next.js"/>
@@ -117,6 +123,8 @@ a Next.js API route on the server.
 
 ## 🚀 Getting Started
 
+Want to try it right now without installing anything? **[Launch the live demo →](https://bill-bot-ai-three.vercel.app/)**
+
 ### Prerequisites
 - [Node.js](https://nodejs.org/) 18.18+ (Next.js 16 requirement)
 - A free [Google Gemini API key](https://aistudio.google.com/apikey)
@@ -220,11 +228,15 @@ Distributed under the **MIT License**. See `LICENSE` for details.
     </td>
     <td align="center">
       <b>Jahnavi Vaddi</b><br/><br/>
-      <img src="https://img.shields.io/badge/Contributor-6f42c1?style=for-the-badge" alt="Jahnavi Vaddi"/>
+      <a href="https://www.linkedin.com/in/jahnavi-vaddi-b21869254/">
+        <img src="https://img.shields.io/badge/LinkedIn-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white" alt="Jahnavi Vaddi LinkedIn"/>
+      </a>
     </td>
     <td align="center">
       <b>Anushka Singh</b><br/><br/>
-      <img src="https://img.shields.io/badge/Contributor-6f42c1?style=for-the-badge" alt="Anushka Singh"/>
+      <a href="https://www.linkedin.com/in/anushka-singh-9384ab209/">
+        <img src="https://img.shields.io/badge/LinkedIn-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white" alt="Anushka Singh LinkedIn"/>
+      </a>
     </td>
   </tr>
 </table>
