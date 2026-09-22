@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import Script from "next/script";
 
 export interface UserSession {
   id: string;
@@ -26,6 +27,10 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [verifiedUser, setVerifiedUser] = useState<UserSession | null>(null);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+  const isGoogleConfigured = googleClientId && googleClientId !== "your_google_client_id_here";
 
   const handleClose = () => {
     setStep("email");
@@ -34,6 +39,100 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
     setOtp(["", "", "", "", "", ""]);
     onClose();
   };
+
+  // Google Sign-In callback
+  const handleGoogleCallback = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async (response: any) => {
+      if (!response?.credential) {
+        setErrorMessage("Google sign-in did not return a valid credential.");
+        return;
+      }
+
+      setIsGoogleLoading(true);
+      setErrorMessage("");
+
+      try {
+        const res = await fetch("/api/auth/google", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ credential: response.credential }),
+        });
+
+        const text = await res.text();
+        let data: Record<string, unknown> = {};
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = { error: text || "Server returned an invalid response" };
+        }
+
+        if (!res.ok) {
+          throw new Error((data.error as string) || "Google sign-in verification failed");
+        }
+
+        const user = data.user as {
+          id: string;
+          name: string;
+          email: string;
+          avatarInitial: string;
+          loginTime: string;
+        };
+
+        const sessionUser: UserSession = {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          avatarInitial: user.avatarInitial,
+          loginTime: user.loginTime,
+        };
+
+        setVerifiedUser(sessionUser);
+        setCustomName(sessionUser.name);
+        setStep("name");
+      } catch (err: unknown) {
+        setErrorMessage(
+          err instanceof Error ? err.message : "Google sign-in failed"
+        );
+      } finally {
+        setIsGoogleLoading(false);
+      }
+    },
+    []
+  );
+
+  // Render Google button when modal opens and script is loaded
+  useEffect(() => {
+    if (!isOpen || !isGoogleConfigured || step !== "email") return;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const google = (window as any).google;
+    if (google?.accounts?.id) {
+      google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: handleGoogleCallback,
+      });
+
+      // Small delay to ensure DOM element is rendered
+      const timer = setTimeout(() => {
+        const btnContainer = document.getElementById("modal-google-btn");
+        if (btnContainer) {
+          btnContainer.innerHTML = ""; // Clear previous renders
+          google.accounts.id.renderButton(btnContainer, {
+            type: "standard",
+            theme: "outline",
+            size: "large",
+            width: "100%",
+            text: "signin_with",
+            shape: "rectangular",
+            logo_alignment: "center",
+          });
+        }
+      }, 100);
+
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, isGoogleConfigured, googleClientId, handleGoogleCallback, step]);
 
   if (!isOpen) return null;
 
@@ -118,6 +217,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
       });
 
       const text = await res.text();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let data: any = {};
       try {
         data = JSON.parse(text);
@@ -156,6 +256,14 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md animate-fade-in">
+      {/* Google Identity Services Script */}
+      {isGoogleConfigured && (
+        <Script
+          src="https://accounts.google.com/gsi/client"
+          strategy="afterInteractive"
+        />
+      )}
+
       <div
         className="relative w-full max-w-md bg-surface border border-border rounded-2xl shadow-2xl p-6 md:p-8 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
@@ -183,12 +291,12 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
           </div>
           <div>
             <h2 className="text-lg font-bold text-foreground">
-              {step === "email" && "Sign In with Email"}
+              {step === "email" && "Sign In"}
               {step === "otp" && "Enter Verification Code"}
               {step === "name" && "Set Display Name"}
             </h2>
             <p className="text-xs text-muted-foreground">
-              {step === "email" && "Passwordless sign-in with 6-digit OTP"}
+              {step === "email" && "Sign in with Google or email OTP"}
               {step === "otp" && "Check your inbox for the 6-digit code"}
               {step === "name" && "Confirm how you want BillBot to address you"}
             </p>
@@ -225,53 +333,77 @@ export default function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps
           </div>
         )}
 
+        {/* Google Loading */}
+        {isGoogleLoading && (
+          <div className="mb-4 p-3 bg-primary/10 border border-primary/30 rounded-xl text-xs text-primary flex items-center gap-2 animate-fade-in">
+            <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin shrink-0" />
+            <span>Verifying Google account...</span>
+          </div>
+        )}
+
         {/* STEP 1: EMAIL INPUT */}
         {step === "email" && (
-          <form onSubmit={handleSendOtp} className="space-y-4">
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-                Your Email Address
-              </label>
-              <div className="relative">
-                <input
-                  type="email"
-                  required
-                  autoFocus
-                  placeholder="e.g. alex.miller@gmail.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 bg-surface-elevated border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary transition-colors"
-                />
-                <svg className="w-5 h-5 absolute right-3.5 top-3.5 text-muted-foreground pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-                </svg>
-              </div>
-            </div>
+          <div className="space-y-4">
+            {/* Google Sign-In Button */}
+            {isGoogleConfigured && (
+              <>
+                <div id="modal-google-btn" className="w-full flex justify-center min-h-[44px]" />
 
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-3 px-4 bg-gradient-to-r from-primary to-primary-light text-background font-semibold rounded-xl shadow-lg shadow-primary/20 hover:opacity-95 active:scale-[0.99] transition-all disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
-            >
-              {isLoading ? (
-                <div className="w-5 h-5 border-2 border-background border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <>
-                  <span>Send Verification Code</span>
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                {/* OR Divider */}
+                <div className="flex items-center gap-3 w-full">
+                  <div className="flex-1 h-px bg-border" />
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">or</span>
+                  <div className="flex-1 h-px bg-border" />
+                </div>
+              </>
+            )}
+
+            <form onSubmit={handleSendOtp} className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+                  Your Email Address
+                </label>
+                <div className="relative">
+                  <input
+                    type="email"
+                    required
+                    autoFocus={!isGoogleConfigured}
+                    placeholder="e.g. alex.miller@gmail.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full px-4 py-3 bg-surface-elevated border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary transition-colors"
+                  />
+                  <svg className="w-5 h-5 absolute right-3.5 top-3.5 text-muted-foreground pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
                   </svg>
-                </>
-              )}
-            </button>
+                </div>
+              </div>
 
-            <div className="pt-2 text-center text-[11px] text-muted-foreground flex items-center justify-center gap-1.5">
-              <svg className="w-3.5 h-3.5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
-              <span>Zero-Storage Privacy: No passwords or emails stored in database.</span>
-            </div>
-          </form>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full py-3 px-4 bg-gradient-to-r from-primary to-primary-light text-background font-semibold rounded-xl shadow-lg shadow-primary/20 hover:opacity-95 active:scale-[0.99] transition-all disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+              >
+                {isLoading ? (
+                  <div className="w-5 h-5 border-2 border-background border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <span>Send Verification Code</span>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                    </svg>
+                  </>
+                )}
+              </button>
+
+              <div className="pt-2 text-center text-[11px] text-muted-foreground flex items-center justify-center gap-1.5">
+                <svg className="w-3.5 h-3.5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+                <span>Zero-Storage Privacy: No passwords or emails stored in database.</span>
+              </div>
+            </form>
+          </div>
         )}
 
         {/* STEP 2: OTP VERIFICATION */}

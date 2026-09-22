@@ -92,7 +92,7 @@ export default function Sidebar({
                 <span className="text-sm font-extrabold text-[#111827] tracking-tight">
                   BillBot AI
                 </span>
-                <span className="block text-[10px] font-semibold text-[#26619C]">Patient Advisour</span>
+                <span className="block text-[10px] font-semibold text-[#26619C]">Patient Advisor</span>
               </div>
             </div>
 
